@@ -1,0 +1,17 @@
+[theme]
+primaryColor = "#2E7D32"
+backgroundColor = "#F9FBF7"
+secondaryBackgroundColor = "#E8F5E9"
+textColor = "#1A3C1A"
+font = "sans serif"
+
+[server]
+headless = true
+port = 8501
+
+[browser]
+gatherUsageStats = false
+
+[runner]
+# Ejecutar en modo producción
+fastReruns = true
