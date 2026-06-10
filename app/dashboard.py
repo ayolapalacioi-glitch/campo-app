@@ -1641,7 +1641,7 @@ with tab_ia:
         if isinstance(pipeline, dict) and 'model' in pipeline:
             voting_model = pipeline['model']
             importances_list = []
-            for name, est in voting_model.estimators_:
+            for est in voting_model.estimators_:
                 if hasattr(est, 'feature_importances_'):
                     importances_list.append(est.feature_importances_)
             if importances_list:
