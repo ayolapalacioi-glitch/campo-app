@@ -41,116 +41,268 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS premium — paleta verde campo (C.A.M.P.O.)
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Outfit', sans-serif;
-    }
-    
-    .metric-card {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 8px 32px 0 rgba(27, 94, 32, 0.08);
-        border: 1px solid rgba(165, 214, 167, 0.6);
-        margin-bottom: 20px;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    
-    .metric-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 40px 0 rgba(27, 94, 32, 0.14);
-    }
-    
-    .metric-title {
-        font-size: 13px;
-        color: #4E6B4E;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-    }
-    
-    .metric-value {
-        font-size: 28px;
-        color: #1B5E20;
-        font-weight: 700;
-        margin-top: 5px;
-    }
-    
-    .metric-delta {
-        font-size: 12px;
-        font-weight: 600;
-        margin-top: 4px;
-    }
-    
-    .delta-positive { color: #2E7D32; }
-    .delta-neutral  { color: #558B2F; }
-    
-    .header-panel {
-        background: linear-gradient(135deg, #1B5E20, #388E3C, #66BB6A);
-        color: white;
-        padding: 28px 32px;
-        border-radius: 20px;
-        margin-bottom: 25px;
-        box-shadow: 0 10px 30px rgba(46, 125, 50, 0.25);
-        position: relative;
-        overflow: hidden;
-    }
-    .header-panel::before {
-        content: '🌾';
-        position: absolute;
-        right: 32px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 64px;
-        opacity: 0.18;
-    }
-    .header-panel h1 {
-        color: white !important;
-        margin: 0;
-        font-weight: 700;
-        font-size: 30px;
-        line-height: 1.2;
-    }
-    .header-panel p {
-        color: rgba(255, 255, 255, 0.92);
-        margin: 8px 0 0 0;
-        font-size: 15px;
-    }
-    .campo-badge {
-        display: inline-block;
-        background: rgba(255,255,255,0.2);
-        border: 1px solid rgba(255,255,255,0.4);
-        border-radius: 20px;
-        padding: 3px 12px;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        margin-top: 10px;
-        color: white;
-    }
-    .result-box {
-        padding: 20px;
-        border-radius: 12px;
-        margin-top: 15px;
-        border: 1px solid rgba(0,0,0,0.06);
-    }
-    .info-banner {
-        background: linear-gradient(135deg, #F1F8E9, #DCEDC8);
-        border-left: 5px solid #558B2F;
-        border-radius: 12px;
-        padding: 16px 20px;
-        margin-bottom: 18px;
-        font-size: 14px;
-        color: #33691E;
-        line-height: 1.6;
-    }
-    .info-banner strong { color: #1B5E20; }
-    </style>
-""", unsafe_allow_html=True)
+# --- CONFIGURACIÓN DE TEMA Y MODO OSCURO ---
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = False
+
+# Renderizar selector en la barra lateral al principio de todo
+st.sidebar.markdown("### 🌗 Preferencias Visuales")
+st.session_state.dark_mode = st.sidebar.toggle("Activar Modo Oscuro 🌙", value=st.session_state.dark_mode)
+
+import plotly.io as pio
+plotly_template = "plotly_dark" if st.session_state.dark_mode else "plotly_white"
+pio.templates.default = plotly_template
+
+# Estilos CSS premium según el tema seleccionado
+if st.session_state.dark_mode:
+    # --- MODO OSCURO (DARK MODE) CSS ---
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+        
+        html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+            font-family: 'Outfit', sans-serif;
+            background-color: #0A120D !important;
+            color: #E2EED5 !important;
+        }
+        
+        [data-testid="stSidebar"] {
+            background-color: #050806 !important;
+            border-right: 1px solid rgba(76, 175, 80, 0.2);
+        }
+        
+        /* Modificar color de texto de marcas de streamlit y expanders */
+        div[data-testid="stMarkdownContainer"] p, div[data-testid="stMarkdownContainer"] span, label, .stMarkdown, .stText {
+            color: #E2EED5 !important;
+        }
+        
+        div[data-testid="stMarkdownContainer"] strong {
+            color: #81C784 !important;
+        }
+
+        .metric-card {
+            background: rgba(22, 38, 25, 0.8) !important;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(129, 199, 132, 0.3) !important;
+            margin-bottom: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.7);
+        }
+        
+        .metric-title {
+            font-size: 13px;
+            color: #A5D6A7 !important;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        
+        .metric-value {
+            font-size: 28px;
+            color: #81C784 !important;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+        
+        .metric-delta {
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        
+        .delta-positive { color: #81C784 !important; }
+        .delta-neutral  { color: #A5D6A7 !important; }
+        
+        .header-panel {
+            background: linear-gradient(135deg, #0A220E, #1B5E20, #2E7D32) !important;
+            color: #E8F5E9 !important;
+            padding: 28px 32px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            position: relative;
+            overflow: hidden;
+        }
+        .header-panel::before {
+            content: '🌾';
+            position: absolute;
+            right: 32px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 64px;
+            opacity: 0.12;
+        }
+        .header-panel h1 {
+            color: #E8F5E9 !important;
+            margin: 0;
+            font-weight: 700;
+            font-size: 30px;
+            line-height: 1.2;
+        }
+        .header-panel p {
+            color: rgba(232, 245, 233, 0.9) !important;
+            margin: 8px 0 0 0;
+            font-size: 15px;
+        }
+        .campo-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            padding: 3px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-top: 10px;
+            color: #C8E6C9 !important;
+        }
+        .result-box {
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 15px;
+            background: rgba(22, 38, 25, 0.5) !important;
+            border: 1px solid rgba(129, 199, 132, 0.2) !important;
+        }
+        .info-banner {
+            background: linear-gradient(135deg, #091A0E, #142F1B) !important;
+            border-left: 5px solid #81C784 !important;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 18px;
+            font-size: 14px;
+            color: #C8E6C9 !important;
+            line-height: 1.6;
+        }
+        .info-banner strong { color: #A5D6A7 !important; }
+        
+        /* Input and UI overrides in dark mode */
+        div[data-testid="stExpander"] {
+            background-color: rgba(22, 38, 25, 0.4) !important;
+            border: 1px solid rgba(129, 199, 132, 0.15) !important;
+        }
+        
+        .stSelectbox, .stSlider, .stNumberInput, .stTextInput, .stButton button {
+            color: #E2EED5 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    # --- MODO CLARO (LIGHT MODE) CSS ---
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+        
+        html, body, [class*="css"] {
+            font-family: 'Outfit', sans-serif;
+        }
+        
+        .metric-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(27, 94, 32, 0.08);
+            border: 1px solid rgba(165, 214, 167, 0.6);
+            margin-bottom: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px 0 rgba(27, 94, 32, 0.14);
+        }
+        
+        .metric-title {
+            font-size: 13px;
+            color: #4E6B4E;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        
+        .metric-value {
+            font-size: 28px;
+            color: #1B5E20;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+        
+        .metric-delta {
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        
+        .delta-positive { color: #2E7D32; }
+        .delta-neutral  { color: #558B2F; }
+        
+        .header-panel {
+            background: linear-gradient(135deg, #1B5E20, #388E3C, #66BB6A);
+            color: white;
+            padding: 28px 32px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(46, 125, 50, 0.25);
+            position: relative;
+            overflow: hidden;
+        }
+        .header-panel::before {
+            content: '🌾';
+            position: absolute;
+            right: 32px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 64px;
+            opacity: 0.18;
+        }
+        .header-panel h1 {
+            color: white !important;
+            margin: 0;
+            font-weight: 700;
+            font-size: 30px;
+            line-height: 1.2;
+        }
+        .header-panel p {
+            color: rgba(255, 255, 255, 0.92);
+            margin: 8px 0 0 0;
+            font-size: 15px;
+        }
+        .campo-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 20px;
+            padding: 3px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-top: 10px;
+            color: white;
+        }
+        .result-box {
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 15px;
+            border: 1px solid rgba(0,0,0,0.06);
+        }
+        .info-banner {
+            background: linear-gradient(135deg, #F1F8E9, #DCEDC8);
+            border-left: 5px solid #558B2F;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 18px;
+            font-size: 14px;
+            color: #33691E;
+            line-height: 1.6;
+        }
+        .info-banner strong { color: #1B5E20; }
+        </style>
+    """, unsafe_allow_html=True)
 
 # 2. Inicialización de Datos y Modelos
 @st.cache_resource
@@ -185,13 +337,18 @@ except Exception as e:
     st.stop()
 
 # --- FILTRADO TERRITORIAL EN SIDEBAR ---
-st.sidebar.markdown("""
-    <div style="padding:14px; background:linear-gradient(135deg,#E8F5E9,#C8E6C9); border-radius:12px; margin-bottom:16px; border-left:4px solid #2E7D32;">
-        <h3 style="margin-top:0; color:#1B5E20; font-weight:700; font-size:17px;">🌾 C.A.M.P.O.</h3>
-        <p style="font-size:11px; color:#33691E; margin-bottom:4px; font-weight:600;">Centro Analítico de Modelamiento</p>
-        <p style="font-size:11px; color:#33691E; margin-bottom:6px;">Predictivo y Observación</p>
-        <hr style="border:none; border-top:1px solid #A5D6A7; margin:8px 0;">
-        <p style="font-size:12px; color:#2E7D32; margin:0;">📍 Elige tu región para ver los datos de tu zona:</p>
+sidebar_header_bg = "linear-gradient(135deg,#0E2413,#142F1B)" if st.session_state.dark_mode else "linear-gradient(135deg,#E8F5E9,#C8E6C9)"
+sidebar_header_border = "4px solid #81C784" if st.session_state.dark_mode else "4px solid #2E7D32"
+sidebar_header_text = "#81C784" if st.session_state.dark_mode else "#1B5E20"
+sidebar_header_subtext = "#C8E6C9" if st.session_state.dark_mode else "#33691E"
+
+st.sidebar.markdown(f"""
+    <div style="padding:14px; background:{sidebar_header_bg}; border-radius:12px; margin-bottom:16px; border-left:{sidebar_header_border};">
+        <h3 style="margin-top:0; color:{sidebar_header_text}; font-weight:700; font-size:17px;">🌾 C.A.M.P.O.</h3>
+        <p style="font-size:11px; color:{sidebar_header_subtext}; margin-bottom:4px; font-weight:600;">Centro Analítico de Modelamiento</p>
+        <p style="font-size:11px; color:{sidebar_header_subtext}; margin-bottom:6px;">Predictivo y Observación</p>
+        <hr style="border:none; border-top:1px solid rgba(129, 199, 132, 0.3); margin:8px 0;">
+        <p style="font-size:12px; color:{sidebar_header_text}; margin:0;">📍 Elige tu región para ver los datos de tu zona:</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -817,9 +974,12 @@ with tab_planning:
             p_temp = default_temp
             p_rain = default_rain
             
-            zona_text = f"{p_mun}" if p_mun != "Todos" else f"el departamento de {p_dept}" if p_dept != "Todos" else "Colombia (Mapeo Nacional)"
+            bg_color = "#182F1C" if st.session_state.dark_mode else "#F8FAFC"
+            border_color = "rgba(129, 199, 132, 0.2)" if st.session_state.dark_mode else "#E2E8F0"
+            text_color = "#E8F5E9" if st.session_state.dark_mode else "#334155"
+            
             st.markdown(f"""
-            <div style="background-color:#F8FAFC; border: 1px solid #E2E8F0; padding:15px; border-radius:12px; margin-bottom:20px; font-size:13px; color:#334155; line-height: 1.6;">
+            <div style="background-color:{bg_color}; border: 1px solid {border_color}; padding:15px; border-radius:12px; margin-bottom:20px; font-size:13px; color:{text_color}; line-height: 1.6;">
                 <b>📍 Parámetros agroclimáticos cargados para {p_crop} en {zona_text}:</b><br>
                 • Altitud: <code>{p_alt} m.s.n.m.</code> | • pH del Suelo: <code>{p_ph}</code> | • Pendiente del Terreno: <code>{p_slope}%</code> | • Materia Orgánica: <code>{p_om}%</code> | • Textura: <code>{p_text}</code><br>
                 • Temperatura Media Anual: <code>{p_temp} °C</code> | • Precipitación Acumulada Anual: <code>{p_rain} mm</code>
@@ -846,9 +1006,14 @@ with tab_planning:
         col_res1, col_res2, col_res3 = st.columns(3)
         
         # Formatear el cumplimiento regulatorio
-        comp_colors = {"Conforme": "#ECFDF5", "Condicionado": "#FFFBEB", "Crítico": "#FEF2F2"}
-        comp_borders = {"Conforme": "#10B981", "Condicionado": "#F59E0B", "Crítico": "#EF4444"}
-        comp_text_color = {"Conforme": "#065F46", "Condicionado": "#78350F", "Crítico": "#991B1B"}
+        if st.session_state.dark_mode:
+            comp_colors = {"Conforme": "#0E2413", "Condicionado": "#2C200E", "Crítico": "#2C0E0E"}
+            comp_borders = {"Conforme": "#81C784", "Condicionado": "#F59E0B", "Crítico": "#EF4444"}
+            comp_text_color = {"Conforme": "#E8F5E9", "Condicionado": "#FFF3E0", "Crítico": "#FFEBEE"}
+        else:
+            comp_colors = {"Conforme": "#ECFDF5", "Condicionado": "#FFFBEB", "Crítico": "#FEF2F2"}
+            comp_borders = {"Conforme": "#10B981", "Condicionado": "#F59E0B", "Crítico": "#EF4444"}
+            comp_text_color = {"Conforme": "#065F46", "Condicionado": "#78350F", "Crítico": "#991B1B"}
         
         status = res["madr_compliance"]
         
@@ -1004,9 +1169,13 @@ with tab_planning:
         st.markdown("#### 🛒 Relevancia en la Canasta Familiar y Tendencia de Demanda")
         col_can1, col_can2 = st.columns(2)
         with col_can1:
+            bg_can1 = "#0E2413" if st.session_state.dark_mode else "#E8F5E9"
+            border_can1 = "#81C784" if st.session_state.dark_mode else "#2E7D32"
+            text_can1 = "#E8F5E9" if st.session_state.dark_mode else "#1B5E20"
+
             st.markdown(f"""
-            <div style="background-color:#E8F5E9; border-left:5px solid #2E7D32; padding:15px; border-radius:8px;">
-                <p style="margin:0; font-size:14px; color:#1B5E20;">
+            <div style="background-color:{bg_can1}; border-left:5px solid {border_can1}; padding:15px; border-radius:8px;">
+                <p style="margin:0; font-size:14px; color:{text_can1};">
                     🛒 <strong>Importancia Canasta Familiar:</strong> Este alimento representa el <b>{eco_res["canasta_pct"]}%</b>
                     del gasto en alimentos básicos de la familia colombiana (DANE).
                 </p>
@@ -1014,9 +1183,13 @@ with tab_planning:
             """, unsafe_allow_html=True)
         with col_can2:
             sign = "+" if eco_res["demanda_trend"] > 0 else ""
+            bg_can2 = "#0E1E2C" if st.session_state.dark_mode else "#E3F2FD"
+            border_can2 = "#1E88E5" if st.session_state.dark_mode else "#1E88E5"
+            text_can2 = "#E3F2FD" if st.session_state.dark_mode else "#0D47A1"
+
             st.markdown(f"""
-            <div style="background-color:#E3F2FD; border-left:5px solid #1E88E5; padding:15px; border-radius:8px;">
-                <p style="margin:0; font-size:14px; color:#0D47A1;">
+            <div style="background-color:{bg_can2}; border-left:5px solid {border_can2}; padding:15px; border-radius:8px;">
+                <p style="margin:0; font-size:14px; color:{text_can2};">
                     📈 <strong>Tendencia de Demanda:</strong> <b>{sign}{eco_res["demanda_trend"]}%</b>
                     alza anual en el consumo nacional.
                 </p>
@@ -1049,7 +1222,7 @@ with tab_planning:
         fig_cash.update_layout(
             barmode="group", 
             title="Proyección Premium de Flujo de Caja por Mes",
-            template="plotly_white",
+            template=plotly_template,
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             xaxis_title="Mes del Proyecto", yaxis_title="Millones COP ($)",
             hovermode="x unified",
@@ -1079,7 +1252,7 @@ with tab_planning:
             marker_line_color='black', marker_line_width=1, opacity=0.9
         )
         fig_comp.update_layout(
-            template="plotly_white",
+            template=plotly_template,
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             xaxis_title="", yaxis_title="COP ($)",
             margin=dict(t=50, b=20, l=20, r=20)
@@ -1167,9 +1340,14 @@ with tab_planning:
         
         # 2. Estado de Cumplimiento General
         g_status = g_res["compliance"]
-        comp_colors = {"Conforme": "#ECFDF5", "Condicionado": "#FFFBEB", "Crítico": "#FEF2F2"}
-        comp_borders = {"Conforme": "#10B981", "Condicionado": "#F59E0B", "Crítico": "#EF4444"}
-        comp_text_color = {"Conforme": "#065F46", "Condicionado": "#78350F", "Crítico": "#991B1B"}
+        if st.session_state.dark_mode:
+            comp_colors = {"Conforme": "#0E2413", "Condicionado": "#2C200E", "Crítico": "#2C0E0E"}
+            comp_borders = {"Conforme": "#81C784", "Condicionado": "#F59E0B", "Crítico": "#EF4444"}
+            comp_text_color = {"Conforme": "#E8F5E9", "Condicionado": "#FFF3E0", "Crítico": "#FFEBEE"}
+        else:
+            comp_colors = {"Conforme": "#ECFDF5", "Condicionado": "#FFFBEB", "Crítico": "#FEF2F2"}
+            comp_borders = {"Conforme": "#10B981", "Condicionado": "#F59E0B", "Crítico": "#EF4444"}
+            comp_text_color = {"Conforme": "#065F46", "Condicionado": "#78350F", "Crítico": "#991B1B"}
         
         st.markdown(f"""
             <div style="background:{comp_colors[g_status]}; padding:20px; border: 1px solid {comp_borders[g_status]}; border-left: 8px solid {comp_borders[g_status]}; border-radius:12px; margin-bottom:25px;">
@@ -1253,19 +1431,27 @@ with tab_planning:
         basket_pct = 12.0 if g_species == "Bovino" else 3.5  # Leche + Carne vs Cerdo
         trend_val = 2.4 if g_species == "Bovino" else 4.1
         
+        bg_gcan1 = "#0E1E2C" if st.session_state.dark_mode else "#F9F9FB"
+        border_gcan1 = "#1E88E5" if st.session_state.dark_mode else "#1E3A8A"
+        text_gcan1 = "#E3F2FD" if st.session_state.dark_mode else "#1E3A8A"
+
         with col_gcan1:
             st.markdown(f"""
-            <div style="background-color:#F9F9FB; border-left:5px solid #1E3A8A; padding:15px; border-radius:8px;">
-                <p style="margin:0; font-size:14px; color:#1E3A8A;">
+            <div style="background-color:{bg_gcan1}; border-left:5px solid {border_gcan1}; padding:15px; border-radius:8px;">
+                <p style="margin:0; font-size:14px; color:{text_gcan1};">
                     🛒 <strong>Importancia Canasta Familiar:</strong> Los productos de {g_species.lower()} representan el <b>{basket_pct}%</b>
                     del gasto alimentario de los hogares colombianos (Promedio nacional DANE).
                 </p>
             </div>
             """, unsafe_allow_html=True)
         with col_gcan2:
+            bg_gcan2 = "#2C1212" if st.session_state.dark_mode else "#FFF5F5"
+            border_gcan2 = "#E53E3E" if st.session_state.dark_mode else "#E53E3E"
+            text_gcan2 = "#FFEBEE" if st.session_state.dark_mode else "#9B2C2C"
+
             st.markdown(f"""
-            <div style="background-color:#FFF5F5; border-left:5px solid #E53E3E; padding:15px; border-radius:8px;">
-                <p style="margin:0; font-size:14px; color:#9B2C2C;">
+            <div style="background-color:{bg_gcan2}; border-left:5px solid {border_gcan2}; padding:15px; border-radius:8px;">
+                <p style="margin:0; font-size:14px; color:{text_gcan2};">
                     📈 <strong>Tendencia de Demanda:</strong> <b>+{trend_val}%</b>
                     de crecimiento en la demanda nacional de proteína en centrales de abasto (SIPSA).
                 </p>
@@ -1337,10 +1523,11 @@ with tab_stats:
             </div>
         """, unsafe_allow_html=True)
         
+        sector_text_color = "#90CAF9" if st.session_state.dark_mode else "#1E3A8A"
         col_m4.markdown(f"""
             <div class="metric-card">
                 <div class="metric-title">Sector Líder</div>
-                <div class="metric-value" style="font-size:18px; height:38px; display:flex; align-items:center; color:#1E3A8A; font-weight:700;">{top_sector}</div>
+                <div class="metric-value" style="font-size:18px; height:38px; display:flex; align-items:center; color:{sector_text_color}; font-weight:700;">{top_sector}</div>
                 <div class="metric-delta delta-positive">Mayor cantidad de datos</div>
             </div>
         """, unsafe_allow_html=True)
@@ -1523,22 +1710,23 @@ with tab_copiloto:
         
         # Presentar información rápida del dataset seleccionado en un formato limpio
         col_d1, col_d2, col_d3 = st.columns(3)
+        card_text_color = "#81C784" if st.session_state.dark_mode else "#1E3A8A"
         col_d1.markdown(f"""
             <div class="metric-card" style="padding: 12px 20px;">
                 <div class="metric-title">Sector</div>
-                <div class="metric-value" style="font-size:16px; color:#1E3A8A; font-weight:600;">{selected_row.get("Información de la Entidad: Sector", "General")}</div>
+                <div class="metric-value" style="font-size:16px; color:{card_text_color}; font-weight:600;">{selected_row.get("Información de la Entidad: Sector", "General")}</div>
             </div>
         """, unsafe_allow_html=True)
         col_d2.markdown(f"""
             <div class="metric-card" style="padding: 12px 20px;">
                 <div class="metric-title">Entidad</div>
-                <div class="metric-value" style="font-size:16px; color:#1E3A8A; font-weight:600;">{str(selected_row.get("Información de la Entidad: Nombre de la Entidad", "No disponible"))[:40]}...</div>
+                <div class="metric-value" style="font-size:16px; color:{card_text_color}; font-weight:600;">{str(selected_row.get("Información de la Entidad: Nombre de la Entidad", "No disponible"))[:40]}...</div>
             </div>
         """, unsafe_allow_html=True)
         col_d3.markdown(f"""
             <div class="metric-card" style="padding: 12px 20px;">
                 <div class="metric-title">Dimensión de Datos</div>
-                <div class="metric-value" style="font-size:16px; color:#1E3A8A; font-weight:600;">{selected_row.get("Número de Filas", 0):,} filas x {selected_row.get("Número de Columnas", 0)} cols</div>
+                <div class="metric-value" style="font-size:16px; color:{card_text_color}; font-weight:600;">{selected_row.get("Número de Filas", 0):,} filas x {selected_row.get("Número de Columnas", 0)} cols</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -1567,12 +1755,25 @@ with tab_copiloto:
         st.write("---")
         st.markdown("#### 🔮 Evaluación del Clasificador de Machine Learning")
         
+        if st.session_state.dark_mode:
+            viab_bg = "#0E2413" if pred == 1 else "#2C0E0E"
+            viab_border = "#81C784" if pred == 1 else "#EF4444"
+            viab_title = "#81C784" if pred == 1 else "#EF4444"
+            viab_text = "#E8F5E9" if pred == 1 else "#FFEBEE"
+            viab_subtext = "#A5D6A7" if pred == 1 else "#FFF3E0"
+        else:
+            viab_bg = "#ECFDF5" if pred == 1 else "#FEF2F2"
+            viab_border = "#10B981" if pred == 1 else "#EF4444"
+            viab_title = "#065F46" if pred == 1 else "#991B1B"
+            viab_text = "#047857" if pred == 1 else "#B91C1C"
+            viab_subtext = "#03543F" if pred == 1 else "#7F1D1D"
+
         if pred == 1:
             st.markdown(f"""
-                <div class="result-box" style="background:#ECFDF5; border-left:6px solid #10B981; margin-bottom:20px;">
-                    <h4 style="color:#065F46; margin:0 0 5px 0; font-weight:700;">✅ VIABLE PARA INTEGRACIÓN (Confianza del {round(viability_prob * 100, 1)}%)</h4>
-                    <p style="color:#047857; margin:0;">El dataset cumple con los estándares del modelo predictivo basados en cobertura territorial, relevancia temática y cantidad de registros.</p>
-                    <p style="color:#03543F; margin-top:10px; font-weight:600;">Proyecto IA sugerido: <b>{proj_title}</b></p>
+                <div class="result-box" style="background:{viab_bg}; border-left:6px solid {viab_border}; margin-bottom:20px;">
+                    <h4 style="color:{viab_title}; margin:0 0 5px 0; font-weight:700;">✅ VIABLE PARA INTEGRACIÓN (Confianza del {round(viability_prob * 100, 1)}%)</h4>
+                    <p style="color:{viab_text}; margin:0;">El dataset cumple con los estándares del modelo predictivo basados en cobertura territorial, relevancia temática y cantidad de registros.</p>
+                    <p style="color:{viab_subtext}; margin-top:10px; font-weight:600;">Proyecto IA sugerido: <b>{proj_title}</b></p>
                 </div>
             """, unsafe_allow_html=True)
         else:
@@ -1587,10 +1788,10 @@ with tab_copiloto:
             reasons_str = " y ".join(reasons) if reasons else "dimensiones limitadas para modelado predictivo complejo"
             
             st.markdown(f"""
-                <div class="result-box" style="background:#FEF2F2; border-left:6px solid #EF4444; margin-bottom:20px;">
-                    <h4 style="color:#991B1B; margin:0 0 5px 0; font-weight:700;">⚠️ VIABILIDAD LIMITADA (Confianza del {round(viability_prob * 100, 1)}%)</h4>
-                    <p style="color:#B91C1C; margin:0;">El modelo clasifica este dataset con viabilidad técnica limitada debido a: <i>{reasons_str}</i>.</p>
-                    <p style="color:#7F1D1D; margin-top:10px; font-weight:600;">Proyecto IA sugerido: <b>{proj_title}</b> (Requiere enriquecimiento en Sprint 1)</p>
+                <div class="result-box" style="background:{viab_bg}; border-left:6px solid {viab_border}; margin-bottom:20px;">
+                    <h4 style="color:{viab_title}; margin:0 0 5px 0; font-weight:700;">⚠️ VIABILIDAD LIMITADA (Confianza del {round(viability_prob * 100, 1)}%)</h4>
+                    <p style="color:{viab_text}; margin:0;">El modelo clasifica este dataset con viabilidad técnica limitada debido a: <i>{reasons_str}</i>.</p>
+                    <p style="color:{viab_subtext}; margin-top:10px; font-weight:600;">Proyecto IA sugerido: <b>{proj_title}</b> (Requiere enriquecimiento en Sprint 1)</p>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -1654,19 +1855,30 @@ with tab_ia:
             pred, probs = predict_viability(input_dict)
             
             # Formatear el cuadro de resultado
+            if st.session_state.dark_mode:
+                viab_bg = "#0E2413" if pred == 1 else "#2C0E0E"
+                viab_border = "#81C784" if pred == 1 else "#EF4444"
+                viab_title = "#81C784" if pred == 1 else "#EF4444"
+                viab_text = "#E8F5E9" if pred == 1 else "#FFEBEE"
+            else:
+                viab_bg = "#ECFDF5" if pred == 1 else "#FEF2F2"
+                viab_border = "#10B981" if pred == 1 else "#EF4444"
+                viab_title = "#065F46" if pred == 1 else "#991B1B"
+                viab_text = "#047857" if pred == 1 else "#B91C1C"
+
             if pred == 1:
                 st.markdown(f"""
-                    <div class="result-box" style="background:#ECFDF5; border-left:6px solid #10B981;">
-                        <h4 style="color:#065F46; margin:0 0 5px 0; font-weight:700;">✅ VIABLE PARA INTEGRACIÓN</h4>
-                        <p style="color:#047857; margin:0;">El modelo clasifica este dataset como apto para ser integrado en el ecosistema. 
+                    <div class="result-box" style="background:{viab_bg}; border-left:6px solid {viab_border};">
+                        <h4 style="color:{viab_title}; margin:0 0 5px 0; font-weight:700;">✅ VIABLE PARA INTEGRACIÓN</h4>
+                        <p style="color:{viab_text}; margin:0;">El modelo clasifica este dataset como apto para ser integrado en el ecosistema. 
                         Probabilidad de viabilidad: <b>{round(probs[1] * 100, 2)}%</b></p>
                     </div>
                 """, unsafe_allow_html=True)
             else:
                 st.markdown(f"""
-                    <div class="result-box" style="background:#FEF2F2; border-left:6px solid #EF4444;">
-                        <h4 style="color:#991B1B; margin:0 0 5px 0; font-weight:700;">❌ NO VIABLE DE INTEGRAR</h4>
-                        <p style="color:#B91C1C; margin:0;">El modelo clasifica este dataset como NO apto (bajo score de relevancia o dimensiones insuficientes). 
+                    <div class="result-box" style="background:{viab_bg}; border-left:6px solid {viab_border};">
+                        <h4 style="color:{viab_title}; margin:0 0 5px 0; font-weight:700;">❌ NO VIABLE DE INTEGRAR</h4>
+                        <p style="color:{viab_text}; margin:0;">El modelo clasifica este dataset como NO apto (bajo score de relevancia o dimensiones insuficientes). 
                         Probabilidad de no viabilidad: <b>{round(probs[0] * 100, 2)}%</b></p>
                     </div>
                 """, unsafe_allow_html=True)
