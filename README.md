@@ -35,7 +35,7 @@ Desarrollo de una **arquitectura híbrida de Inteligencia Artificial** adaptada 
 ## 📊 4. Evaluación (Evaluation)
 El desempeño técnico de los modelos se evalúa mediante métricas de regresión (RMSE, MAE, R2-Score) y clasificación (Accuracy, F1-Score) frente a la "verdad fundamental" histórica:
 *   **RandomForestRegressor (Cosechas):** R2-Score: **99.09%** | RMSE: **0.404 Ton/Ha**.
-*   **RandomForestClassifier (Viabilidad):** Accuracy: **83.57%**.
+*   **RandomForestClassifier (Viabilidad):** Accuracy: **86.43%** | Precision: **89.47%** | F1-Score: **87.74%** — Mejorado incorporando `ds_calidad_datos` como nuevo feature predictivo (importancia: 11.71%).
 Se evalúa también la **escalabilidad** y el **impacto socioeconómico**, priorizando la reducción de la incertidumbre para el pequeño y mediano productor rural.
 
 ---

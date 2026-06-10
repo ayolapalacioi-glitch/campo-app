@@ -86,7 +86,10 @@ def clean_challenge_catalog(workspace_dir=".", processed_dir="data/processed"):
         "Información de la Entidad: Orden", "Información de la Entidad: Departamento",
         "Información de la Entidad: Municipio", "Categoría", "Etiqueta",
         "Fecha de última actualización de datos (UTC)", "API", "url", "ds_justificacion",
-        "ds_score_relevancia"
+        "ds_score_relevancia",
+        # Columnas adicionales del concurso (Datos al Ecosistema 2026)
+        "ds_calidad_datos", "ds_reto_principal", "ds_retos_secundarios", "ds_potencial_integracion",
+        "ds_reto_sugerido", "ds_justificacion_sugerida"
     ]
     
     existing_cols = [c for c in cols_to_keep if c in df_catalog.columns]
@@ -103,6 +106,15 @@ def clean_challenge_catalog(workspace_dir=".", processed_dir="data/processed"):
             
     if "ds_score_relevancia" in df_clean.columns:
         df_clean["ds_score_relevancia"] = pd.to_numeric(df_clean["ds_score_relevancia"], errors='coerce').fillna(3.0)
+    
+    if "ds_calidad_datos" in df_clean.columns:
+        df_clean["ds_calidad_datos"] = pd.to_numeric(df_clean["ds_calidad_datos"], errors='coerce').fillna(2.0)
+
+    if "ds_potencial_integracion" in df_clean.columns:
+        df_clean["ds_potencial_integracion"] = df_clean["ds_potencial_integracion"].map(
+            lambda x: True if str(x).strip().lower() in ['true', '1', 'yes', 'si', 'sí'] else False
+            if str(x).strip().lower() in ['false', '0', 'no'] else None
+        ).fillna(False)
         
     # Rellenar textos nulos
     text_cols = df_clean.select_dtypes(include=['object']).columns

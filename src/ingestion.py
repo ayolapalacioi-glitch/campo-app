@@ -251,23 +251,42 @@ def generate_mock_data(output_dir="data/raw"):
 
 def load_challenge_metadata(workspace_dir="."):
     """
-    Carga el catálogo principal del reto de agricultura.
+    Carga e integra TODOS los archivos CSV del concurso Datos al Ecosistema 2026
+    (catálogo principal + coberturas local, nacional, regional + entidades alcaldía y ministerio)
+    en un único catálogo unificado y deduplicado por UID.
     """
-    path = os.path.join(workspace_dir, "reto_04_agricultura_20260430_225257.csv")
-    if os.path.exists(path):
-        return pd.read_csv(path, encoding='utf-8')
+    frames = []
     
-    # Búsqueda dinámica si el nombre varía
+    # Patrón de archivos del concurso (todos los reto_04_agricultura_*.csv)
     if os.path.exists(workspace_dir):
-        for file in os.listdir(workspace_dir):
-            if (file.startswith("reto_04_agricultura_") and 
-                file.endswith(".csv") and 
-                "cobertura" not in file and 
-                "entidad" not in file):
-                return pd.read_csv(os.path.join(workspace_dir, file), encoding='utf-8')
-                
-    print("Catálogo de retos de agricultura no encontrado en el directorio raíz.")
-    return pd.DataFrame()
+        for file in sorted(os.listdir(workspace_dir)):
+            if file.startswith("reto_04_agricultura_") and file.endswith(".csv"):
+                fpath = os.path.join(workspace_dir, file)
+                try:
+                    df_part = pd.read_csv(fpath, encoding='utf-8')
+                    if not df_part.empty:
+                        frames.append(df_part)
+                        print(f"  [OK] Cargado: {file} ({df_part.shape[0]} filas)")
+                except Exception as e:
+                    print(f"  [ERR] Error al leer {file}: {e}")
+    
+    if not frames:
+        print("Catálogo de retos de agricultura no encontrado en el directorio raíz.")
+        return pd.DataFrame()
+    
+    df_combined = pd.concat(frames, ignore_index=True)
+    
+    # Deduplicar por UID (priorizar el registro con más columnas rellenas)
+    if "UID" in df_combined.columns:
+        df_combined = (
+            df_combined
+            .sort_values(by=df_combined.columns.tolist(), na_position='last')
+            .drop_duplicates(subset=["UID"], keep='first')
+            .reset_index(drop=True)
+        )
+    
+    print(f"\n[OK] Catalogo unificado: {df_combined.shape[0]} datasets ({len(frames)} archivos fusionados)")
+    return df_combined
 
 def load_local_dataset(filename, data_dir="data/raw"):
     """

@@ -1209,6 +1209,95 @@ with tab_stats:
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
+        # --- MATRIZ DE CALIDAD DE DATOS (nueva seccion con columnas del concurso) ---
+        st.markdown("---")
+        st.markdown("#### 🔬 Análisis de Calidad y Relevancia del Ecosistema de Datos")
+        col_mat1, col_mat2 = st.columns([3, 2])
+        with col_mat1:
+            if "ds_calidad_datos" in df_cat_filtered.columns and "ds_score_relevancia" in df_cat_filtered.columns:
+                df_scatter = df_cat_filtered[
+                    (df_cat_filtered["ds_calidad_datos"] > 0) & (df_cat_filtered["ds_score_relevancia"] > 0)
+                ].copy()
+                fig_mat = px.scatter(
+                    df_scatter,
+                    x="ds_score_relevancia",
+                    y="ds_calidad_datos",
+                    color="es_viable",
+                    size="Número de Filas",
+                    hover_data=["Titulo", "Información de la Entidad: Nombre de la Entidad", "alcance_geografico"],
+                    title="Matriz de Calidad vs. Relevancia — Ecosistema de Datos Agrarios",
+                    labels={
+                        "ds_score_relevancia": "Score de Relevancia (1-5)",
+                        "ds_calidad_datos": "Score de Calidad (1-5)",
+                        "es_viable": "Viable para IA?"
+                    },
+                    color_discrete_map={True: "#22C55E", False: "#EF4444"},
+                    opacity=0.75
+                )
+                fig_mat.add_vline(x=3.5, line_dash="dash", line_color="#6B7280", opacity=0.5)
+                fig_mat.add_hline(y=2.5, line_dash="dash", line_color="#6B7280", opacity=0.5)
+                fig_mat.add_annotation(x=4.5, y=4.5, text="Alta calidad + Alta relevancia",
+                                       showarrow=False, font=dict(color="#15803D", size=10),
+                                       bgcolor="rgba(220,252,231,0.8)")
+                fig_mat.add_annotation(x=1.5, y=1.0, text="Baja calidad + Baja relevancia",
+                                       showarrow=False, font=dict(color="#991B1B", size=10),
+                                       bgcolor="rgba(254,226,226,0.8)")
+                fig_mat.update_layout(
+                    height=350, plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                    margin=dict(l=0, r=0, t=40, b=0)
+                )
+                st.plotly_chart(fig_mat, use_container_width=True)
+            else:
+                st.info("Regenere el catálogo para ver la Matriz de Calidad (requiere columnas del concurso 2026).")
+        with col_mat2:
+            st.markdown("##### Distribución de Calidad de los Datos")
+            if "ds_calidad_datos" in df_cat_filtered.columns:
+                df_calidad_copy = df_cat_filtered.copy()
+                df_calidad_copy["Calidad"] = df_calidad_copy["ds_calidad_datos"].apply(
+                    lambda x: "Alta (4-5)" if x >= 4 else "Media (2-3)" if x >= 2 else "Baja (1)"
+                )
+                df_qual_count = df_calidad_copy["Calidad"].value_counts().reset_index()
+                df_qual_count.columns = ["Nivel de Calidad", "Cantidad"]
+                fig_qual = px.bar(
+                    df_qual_count, x="Cantidad", y="Nivel de Calidad", orientation="h",
+                    color="Nivel de Calidad",
+                    color_discrete_map={"Alta (4-5)": "#22C55E", "Media (2-3)": "#F59E0B", "Baja (1)": "#EF4444"},
+                    title="Distribucion de Calidad"
+                )
+                fig_qual.update_layout(
+                    height=170, showlegend=False,
+                    margin=dict(l=0, r=0, t=35, b=0),
+                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)"
+                )
+                st.plotly_chart(fig_qual, use_container_width=True)
+                avg_quality = df_cat_filtered["ds_calidad_datos"].mean()
+                avg_relevance = df_cat_filtered["ds_score_relevancia"].mean()
+                pct_integration = (df_cat_filtered["ds_potencial_integracion"].sum() / len(df_cat_filtered) * 100) if "ds_potencial_integracion" in df_cat_filtered.columns else 0
+                st.metric("Calidad Promedio (jurado)", f"{avg_quality:.2f} / 5")
+                st.metric("Relevancia Promedio (jurado)", f"{avg_relevance:.2f} / 5")
+                st.metric("Con Potencial de Integracion", f"{pct_integration:.1f}%")
+        st.markdown("---")
+        st.markdown("#### Top 15 Datasets — Mejor Calificados en Calidad y Relevancia")
+        if "ds_calidad_datos" in df_cat_filtered.columns and "ds_score_relevancia" in df_cat_filtered.columns:
+            df_top = df_cat_filtered.copy()
+            df_top["Score Total"] = df_top["ds_score_relevancia"] + df_top["ds_calidad_datos"]
+            df_top = df_top.nlargest(15, "Score Total")[[
+                "Titulo", "Información de la Entidad: Nombre de la Entidad", "alcance_geografico",
+                "ds_score_relevancia", "ds_calidad_datos", "Score Total", "es_viable", "Número de Filas"
+            ]].rename(columns={
+                "Titulo": "Dataset",
+                "Información de la Entidad: Nombre de la Entidad": "Entidad",
+                "alcance_geografico": "Alcance",
+                "ds_score_relevancia": "Relevancia",
+                "ds_calidad_datos": "Calidad",
+                "es_viable": "Viable",
+                "Número de Filas": "Filas"
+            })
+            st.dataframe(
+                df_top.style.background_gradient(subset=["Relevancia", "Calidad"], cmap="Greens"),
+                use_container_width=True, hide_index=True
+            )
+
 # ==================== PESTAÑA 5: PROPUESTAS CON IA ====================
 with tab_copiloto:
     st.markdown("### 🤝 Copiloto de IA: Generador de Propuestas para Mejorar el Campo")
@@ -1280,7 +1369,8 @@ with tab_copiloto:
             "Información de la Entidad: Orden": selected_row.get("Información de la Entidad: Orden", "Nacional"),
             "Número de Filas": selected_row.get("Número de Filas", 0),
             "Número de Columnas": selected_row.get("Número de Columnas", 0),
-            "ds_score_relevancia": selected_row.get("ds_score_relevancia", 3.0)
+            "ds_score_relevancia": selected_row.get("ds_score_relevancia", 3.0),
+            "ds_calidad_datos": selected_row.get("ds_calidad_datos", 2.0)
         }
         pred, probs = predict_viability(input_dict)
         viability_prob = probs[1]
@@ -1359,6 +1449,8 @@ with tab_ia:
         in_rows = st.number_input("Número de Filas", min_value=1, max_value=10000000, value=5000, step=100)
         in_cols = st.number_input("Número de Columnas", min_value=1, max_value=250, value=15, step=1)
         in_score = st.slider("Score de Relevancia (1 - 5)", 1.0, 5.0, 3.5, step=0.5)
+        in_quality = st.slider("Calidad de Datos (1 - 5) — Score oficial del concurso", 1.0, 5.0, 3.0, step=0.5,
+                               help="Score de calidad asignado por el jurado del concurso Datos al Ecosistema 2026")
         
         in_scope = st.selectbox("Alcance Geográfico", alcance_op)
         in_sector = st.selectbox("Sector de la Entidad", sectores_op)
@@ -1370,7 +1462,8 @@ with tab_ia:
             "Información de la Entidad: Orden": in_orden,
             "Número de Filas": in_rows,
             "Número de Columnas": in_cols,
-            "ds_score_relevancia": in_score
+            "ds_score_relevancia": in_score,
+            "ds_calidad_datos": in_quality
         }
         
         if st.button("🔮 Clasificar Viabilidad del Dataset", type="primary", use_container_width=True, key="btn_sim_viab"):

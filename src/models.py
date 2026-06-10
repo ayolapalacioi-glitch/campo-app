@@ -30,7 +30,7 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
     
     # 1. Definir características predictoras (X) e interés (y)
     categorical_features = ["alcance_geografico", "Información de la Entidad: Sector", "Información de la Entidad: Orden"]
-    numeric_features = ["Número de Filas", "Número de Columnas", "ds_score_relevancia"]
+    numeric_features = ["Número de Filas", "Número de Columnas", "ds_score_relevancia", "ds_calidad_datos"]
     
     # Asegurar que existan las columnas
     for col in categorical_features + numeric_features:
@@ -109,11 +109,11 @@ def predict_viability(input_data, model_path="data/processed/dataset_viability_m
         input_data = pd.DataFrame([input_data])
         
     cols = ["alcance_geografico", "Información de la Entidad: Sector", "Información de la Entidad: Orden",
-            "Número de Filas", "Número de Columnas", "ds_score_relevancia"]
+            "Número de Filas", "Número de Columnas", "ds_score_relevancia", "ds_calidad_datos"]
             
     for col in cols:
         if col not in input_data.columns:
-            input_data[col] = "No disponible" if col not in ["Número de Filas", "Número de Columnas", "ds_score_relevancia"] else 0.0
+            input_data[col] = "No disponible" if col not in ["Número de Filas", "Número de Columnas", "ds_score_relevancia", "ds_calidad_datos"] else 0.0
             
     input_data = input_data[cols]
     prediction = pipeline.predict(input_data)[0]
