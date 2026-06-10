@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 import folium
 from streamlit_folium import st_folium
 import joblib
@@ -326,7 +327,18 @@ def setup_environment():
     if not os.path.exists(model_path):
         pipeline = train_viability_model(catalog_path, processed_dir)
     else:
-        pipeline = joblib.load(model_path)
+        try:
+            pipeline = joblib.load(model_path)
+            # Validar que sea un diccionario compatible con las llaves requeridas
+            if not isinstance(pipeline, dict) or 'model' not in pipeline:
+                raise ValueError("Modelo no compatible con la estructura del ensamble.")
+        except Exception as e:
+            # En caso de incompatibilidad de versiones o corrupción, eliminamos y re-entrenamos
+            try:
+                os.remove(model_path)
+            except:
+                pass
+            pipeline = train_viability_model(catalog_path, processed_dir)
         
     return df_cat, pipeline
 
