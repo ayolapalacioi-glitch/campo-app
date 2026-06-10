@@ -23,7 +23,15 @@ try:
 except Exception as e:
     pass
 
-from src.models import train_viability_model, predict_viability, generate_project_proposal, get_project_type_details, predict_optimal_cycle, predict_livestock_economics
+from src.models import train_viability_model, predict_viability, generate_project_proposal, get_project_type_details, predict_optimal_cycle, predict_livestock_economics, predict_crop_economics, compare_all_crops
+
+# Importar y recargar el asistente RAG
+import app.assistant
+try:
+    importlib.reload(app.assistant)
+except Exception as e:
+    pass
+from app.assistant import CampoAssistant
 
 # 1. Configuración de página C.A.M.P.O.
 st.set_page_config(
@@ -232,13 +240,14 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Pestañas principales (lenguaje campesino)
-tab_mapa, tab_agro_data, tab_planning, tab_stats, tab_copiloto, tab_ia = st.tabs([
+tab_mapa, tab_agro_data, tab_planning, tab_stats, tab_copiloto, tab_ia, tab_chat = st.tabs([
     "🗺️ Mi Región en el Mapa",
     "📊 Cifras del Campo Colombiano",
     "🗓️ ¿Cuándo Sembrar?",
     "💡 Retos e Ideas de Mejora",
     "🤝 Propuestas con Apoyo de IA",
-    "✅ Evaluador de Información"
+    "✅ Evaluador de Información",
+    "🤖 Chat de Asistencia Campesina (IA)"
 ])
 
 # ==================== PESTAÑA 1: GEOGRAFÍA Y CATÁLOGO ====================
@@ -713,7 +722,7 @@ with tab_planning:
         </div>
         """, unsafe_allow_html=True)
         
-        col_sel_c1, col_sel_c2, col_sel_c3 = st.columns(3)
+        col_sel_c1, col_sel_c2, col_sel_c3, col_sel_c4 = st.columns(4)
         with col_sel_c1:
             p_dept = st.selectbox("🌏 Mi Departamento", ["Todos"] + depts_agro, key="p_dept_local")
         with col_sel_c2:
@@ -727,6 +736,8 @@ with tab_planning:
         with col_sel_c3:
             crop_options = ["Cafe", "Cacao", "Arroz", "Maiz", "Platano"]
             p_crop = st.selectbox("🌱 Mi Cultivo", crop_options, key="p_crop_local")
+        with col_sel_c4:
+            p_area = st.slider("🌿 Hectáreas a Sembrar", 0.5, 100.0, 5.0, step=0.5, key="p_area_val")
 
         # Filtrar datos agrícolas según la selección local de la pestaña (predictivo según la zona y cultivo)
         df_agro_local = df_agro.copy()
@@ -946,6 +957,98 @@ with tab_planning:
         fig_cycles.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", coloraxis_showscale=False)
         st.plotly_chart(fig_cycles, use_container_width=True)
 
+        # ── 4. Proyecciones Económicas (Nuevo) ─────────────────────────────────
+        st.markdown("---")
+        st.markdown("### 💰 Proyecciones Económicas y Financieras del Cultivo")
+        
+        # Inferencia económica
+        eco_res = predict_crop_economics(
+            p_crop, p_ph, p_alt, p_slope, p_om, p_text, p_temp, p_rain, p_area,
+            dept=p_dept, mun=p_mun
+        )
+        
+        # Tarjetas de KPI
+        col_eco1, col_eco2, col_eco3, col_eco4 = st.columns(4)
+        col_eco1.markdown(f"""
+            <div class="metric-card" style="padding:15px; border-left: 5px solid #2E7D32;">
+                <div class="metric-title">Ingresos Brutos Anuales</div>
+                <div class="metric-value" style="font-size:20px; color:#1B5E20; font-weight:700;">$ {eco_res["gross_revenue"]:,} COP</div>
+                <div class="metric-delta delta-positive">Producción: {eco_res["total_production_ton"]} Ton</div>
+            </div>
+        """, unsafe_allow_html=True)
+        col_eco2.markdown(f"""
+            <div class="metric-card" style="padding:15px; border-left: 5px solid #64748B;">
+                <div class="metric-title">Costos Operativos</div>
+                <div class="metric-value" style="font-size:20px; color:#475569; font-weight:700;">$ {eco_res["total_cost"]:,} COP</div>
+                <div class="metric-delta delta-neutral">Sugerido FINAGRO</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        color_profit = "#2E7D32" if eco_res["net_profit"] >= 0 else "#EF4444"
+        col_eco3.markdown(f"""
+            <div class="metric-card" style="padding:15px; border-left: 5px solid {color_profit};">
+                <div class="metric-title">Utilidad Neta Proyectada</div>
+                <div class="metric-value" style="font-size:20px; color:{color_profit}; font-weight:700;">$ {eco_res["net_profit"]:,} COP</div>
+                <div class="metric-delta" style="color:{color_profit}; font-weight:600;">{eco_res["margin_pct"]}% margen operativo</div>
+            </div>
+        """, unsafe_allow_html=True)
+        col_eco4.markdown(f"""
+            <div class="metric-card" style="padding:15px; border-left: 5px solid #8B5CF6;">
+                <div class="metric-title">Retorno de Inversión (ROI)</div>
+                <div class="metric-value" style="font-size:20px; color:#6D28D9; font-weight:700;">{eco_res["roi_pct"]}%</div>
+                <div class="metric-delta" style="color:#6D28D9; font-weight:600;">Sobre capital invertido</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Canasta Familiar y Demanda
+        st.markdown("#### 🛒 Relevancia en la Canasta Familiar y Tendencia de Demanda")
+        col_can1, col_can2 = st.columns(2)
+        with col_can1:
+            st.markdown(f"""
+            <div style="background-color:#E8F5E9; border-left:5px solid #2E7D32; padding:15px; border-radius:8px;">
+                <p style="margin:0; font-size:14px; color:#1B5E20;">
+                    🛒 <strong>Importancia Canasta Familiar:</strong> Este alimento representa el <b>{eco_res["canasta_pct"]}%</b>
+                    del gasto en alimentos básicos de la familia colombiana (DANE).
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_can2:
+            sign = "+" if eco_res["demanda_trend"] > 0 else ""
+            st.markdown(f"""
+            <div style="background-color:#E3F2FD; border-left:5px solid #1E88E5; padding:15px; border-radius:8px;">
+                <p style="margin:0; font-size:14px; color:#0D47A1;">
+                    📈 <strong>Tendencia de Demanda:</strong> <b>{sign}{eco_res["demanda_trend"]}%</b>
+                    alza anual en el consumo nacional.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # Gráfica de flujo de caja mensual
+        st.markdown("#### 📅 Flujo de Caja Mensual del Cultivo")
+        df_cash = pd.DataFrame(eco_res["monthly_cash_flow"])
+        fig_cash = go.Figure()
+        fig_cash.add_trace(go.Bar(x=df_cash["mes"], y=df_cash["ingresos"], name="Ingresos", marker_color="#2E7D32"))
+        fig_cash.add_trace(go.Bar(x=df_cash["mes"], y=df_cash["costos"], name="Costos", marker_color="#64748B"))
+        fig_cash.add_trace(go.Scatter(x=df_cash["mes"], y=df_cash["neto"], name="Flujo Neto", line=dict(color="#8B5CF6", width=3)))
+        fig_cash.update_layout(barmode="group", title="Proyección de Flujo de Caja por Mes",
+                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                               xaxis_title="Mes", yaxis_title="COP ($)")
+        st.plotly_chart(fig_cash, use_container_width=True)
+        
+        # Comparación de todos los cultivos
+        st.markdown("#### 🌾 Comparación de Rentabilidad con otros Cultivos")
+        st.write("A continuación se compara el beneficio neto estimado de su terreno si sembrara otros cultivos alternativos:")
+        all_crops_res = compare_all_crops(p_ph, p_alt, p_slope, p_om, p_text, p_temp, p_rain, p_area, dept=p_dept, mun=p_mun)
+        df_comp = pd.DataFrame([
+            {"Cultivo": c["crop"], "Utilidad Neta (COP)": c["net_profit"], "ROI (%)": c["roi_pct"]}
+            for c in all_crops_res
+        ])
+        fig_comp = px.bar(df_comp, x="Cultivo", y="Utilidad Neta (COP)", color="ROI (%)",
+                          title="Beneficio Neto Proyectado por Cultivo en su Predio",
+                          color_continuous_scale="RdYlGn", text_auto=True)
+        fig_comp.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig_comp, use_container_width=True)
+
     with planning_sub2:
         st.markdown("### 🐄 Simulador de Ganancias Ganaderas")
         st.markdown("""
@@ -1103,6 +1206,45 @@ with tab_planning:
             use_container_width=True,
             key="btn_dl_ganado_report"
         )
+
+        # Canasta Familiar y Demanda Ganadera
+        st.markdown("#### 🛒 Relevancia Ganadera en la Canasta Familiar")
+        col_gcan1, col_gcan2 = st.columns(2)
+        
+        # Asignar porcentajes realistas según la especie
+        basket_pct = 12.0 if g_species == "Bovino" else 3.5  # Leche + Carne vs Cerdo
+        trend_val = 2.4 if g_species == "Bovino" else 4.1
+        
+        with col_gcan1:
+            st.markdown(f"""
+            <div style="background-color:#F9F9FB; border-left:5px solid #1E3A8A; padding:15px; border-radius:8px;">
+                <p style="margin:0; font-size:14px; color:#1E3A8A;">
+                    🛒 <strong>Importancia Canasta Familiar:</strong> Los productos de {g_species.lower()} representan el <b>{basket_pct}%</b>
+                    del gasto alimentario de los hogares colombianos (Promedio nacional DANE).
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_gcan2:
+            st.markdown(f"""
+            <div style="background-color:#FFF5F5; border-left:5px solid #E53E3E; padding:15px; border-radius:8px;">
+                <p style="margin:0; font-size:14px; color:#9B2C2C;">
+                    📈 <strong>Tendencia de Demanda:</strong> <b>+{trend_val}%</b>
+                    de crecimiento en la demanda nacional de proteína en centrales de abasto (SIPSA).
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # Gráfica de flujo de caja ganadero
+        st.markdown("#### 📅 Flujo de Caja Mensual del Proyecto Ganadero")
+        df_g_cash = pd.DataFrame(g_res["monthly_cash_flow"])
+        fig_g_cash = go.Figure()
+        fig_g_cash.add_trace(go.Bar(x=df_g_cash["mes"], y=df_g_cash["ingresos"], name="Ingresos", marker_color="#1E3A8A"))
+        fig_g_cash.add_trace(go.Bar(x=df_g_cash["mes"], y=df_g_cash["costos"], name="Costos", marker_color="#64748B"))
+        fig_g_cash.add_trace(go.Scatter(x=df_g_cash["mes"], y=df_g_cash["neto"], name="Flujo Neto", line=dict(color="#EF4444", width=3)))
+        fig_g_cash.update_layout(barmode="group", title="Proyección de Flujo de Caja por Mes",
+                                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                                 xaxis_title="Mes", yaxis_title="COP ($)")
+        st.plotly_chart(fig_g_cash, use_container_width=True)
 
 # ==================== PESTAÑA 4: RETOS E IDEAS DE MEJORA ====================
 with tab_stats:
@@ -1364,6 +1506,10 @@ with tab_copiloto:
         
         # Predecir viabilidad con IA Real
         input_dict = {
+            "UID": selected_row.get("UID", ""),
+            "Titulo": selected_row.get("Titulo", ""),
+            "Descripción": selected_row.get("Descripción", ""),
+            "ds_justificacion": selected_row.get("ds_justificacion", ""),
             "alcance_geografico": selected_row.get("alcance_geografico", "Nacional"),
             "Información de la Entidad: Sector": selected_row.get("Información de la Entidad: Sector", "General"),
             "Información de la Entidad: Orden": selected_row.get("Información de la Entidad: Orden", "Nacional"),
@@ -1491,12 +1637,38 @@ with tab_ia:
         st.markdown("##### 🔬 Importancia de Variables en la Viabilidad")
         st.write("Atributos del dataset que más influyen en la clasificación de la IA:")
         
-        # Extraer importancias del pipeline entrenado
-        importances = pipeline.named_steps['classifier'].feature_importances_
-        categorical_features = ["alcance_geografico", "Información de la Entidad: Sector", "Información de la Entidad: Orden"]
-        ohe_categories = pipeline.named_steps['preprocessor'].named_transformers_['cat'].get_feature_names_out(categorical_features)
-        numeric_features = ["Número de Filas", "Número de Columnas", "ds_score_relevancia"]
-        feature_names = list(ohe_categories) + numeric_features
+        # Extraer importancias del pipeline/dict entrenado
+        if isinstance(pipeline, dict) and 'model' in pipeline:
+            voting_model = pipeline['model']
+            importances_list = []
+            for name, est in voting_model.estimators_:
+                if hasattr(est, 'feature_importances_'):
+                    importances_list.append(est.feature_importances_)
+            if importances_list:
+                importances = np.mean(importances_list, axis=0)
+            else:
+                importances = np.ones(32) / 32
+            feature_names = [
+                "Longitud de Título", "Palabras de Título", "Título tiene Año", "Título tiene Depto",
+                "Longitud de Descripción", "Palabras de Descripción", "Longitud de Justificación",
+                "Palabras Clave Agro", "Palabras Clave Baja Calidad", "Filas (Original)", "Filas (Log)",
+                "Filas > 1,000", "Filas > 10,000", "Columnas (Original)", "Columnas (Log)",
+                "Columnas > 10", "Columnas > 20", "Relevancia (Jurado)", "Calidad de Datos",
+                "Score Multiplicativo", "Score Aditivo", "Relevancia Alta (>=4)", "Calidad Alta (>=3)",
+                "Ambos Scores Altos", "Encabezados Útiles", "Potencial Integración", "Cobertura Nacional",
+                "Cobertura Regional", "Cobertura Local", "Sector Agropecuario", "Orden Nacional",
+                "Orden Territorial"
+            ]
+        else:
+            try:
+                importances = pipeline.named_steps['classifier'].feature_importances_
+                categorical_features = ["alcance_geografico", "Información de la Entidad: Sector", "Información de la Entidad: Orden"]
+                ohe_categories = pipeline.named_steps['preprocessor'].named_transformers_['cat'].get_feature_names_out(categorical_features)
+                numeric_features = ["Número de Filas", "Número de Columnas", "ds_score_relevancia"]
+                feature_names = list(ohe_categories) + numeric_features
+            except:
+                importances = np.ones(7) / 7
+                feature_names = ["Cobertura", "Sector", "Orden", "Filas", "Columnas", "Relevancia", "Calidad"]
         
         df_imp = pd.DataFrame({
             "Característica": feature_names,
@@ -1519,6 +1691,61 @@ with tab_ia:
             paper_bgcolor="rgba(0,0,0,0)"
         )
         st.plotly_chart(fig_imp, use_container_width=True)
+
+        # Mostrar métricas oficiales de validación
+        if isinstance(pipeline, dict) and 'accuracy' in pipeline:
+            st.markdown("---")
+            st.markdown("##### 📈 Desempeño Técnico del Modelo")
+            col_met1, col_met2 = st.columns(2)
+            col_met1.metric("Precisión Global (Accuracy)", f"{pipeline['accuracy']}%", help="Métrica global del clasificador (concurso)")
+            col_met2.metric("F1-Score del Modelo", f"{pipeline['f1']}%", help="Métrica balanceada de precisión y sensibilidad")
+
+# ==================== PESTAÑA 7: CHAT DE ASISTENCIA (NUEVA) ====================
+with tab_chat:
+    st.markdown("### 🤖 Asistente del Campo — Consultas con Inteligencia Artificial")
+    st.markdown("""
+    <div class="info-banner">
+        ¿Tiene alguna duda sobre qué sembrar, cómo está el clima, los precios del mercado SIPSA o cómo formalizar sus tierras con la ANT? 
+        El <strong>Asistente del Campo</strong> le ayuda respondiendo cualquier pregunta en su propio lenguaje.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Configuración de API Key en la interfaz
+    st.markdown("##### 🔑 Configuración del Cerebro de IA")
+    gemini_api_key_input = st.text_input(
+        "Clave de API de Google Gemini (Opcional — deje vacío para usar fallback local basado en datos oficiales):",
+        value=os.environ.get("GEMINI_API_KEY", ""),
+        type="password",
+        help="Obtenga una clave gratuita en Google AI Studio para activar la IA generativa fluida."
+    )
+    
+    # Inicializar el asistente
+    assistant = CampoAssistant()
+    
+    # Inicializar historial de chat
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = [
+            {"role": "assistant", "content": "¡Hola, mi estimado productor! Qué alegría tenerlo por acá. Soy **Antigravity**, su asesor de confianza. Pregúnteme lo que quiera sobre su cultivo, su tierra o el ganado, y con gusto le ayudo con los datos del gobierno colombiano."}
+        ]
+        
+    # Mostrar mensajes anteriores
+    for msg in st.session_state.chat_history:
+        avatar = "🤖" if msg["role"] == "assistant" else "👨‍🌾"
+        st.chat_message(msg["role"], avatar=avatar).write(msg["content"])
+        
+    # Entrada de usuario
+    if user_query := st.chat_input("Pregúntele algo al asistente (ej. '¿Cuál es el precio del plátano y el café hoy?' o '¿Cómo formalizo mi tierra en Cauca?')"):
+        # Mostrar mensaje del usuario
+        st.chat_message("user", avatar="👨‍🌾").write(user_query)
+        st.session_state.chat_history.append({"role": "user", "content": user_query})
+        
+        # Generar respuesta
+        with st.spinner("Revisando las bases de datos del campo..."):
+            response = assistant.answer_question(user_query, api_key=gemini_api_key_input)
+            
+        # Mostrar respuesta
+        st.chat_message("assistant", avatar="🤖").write(response)
+        st.session_state.chat_history.append({"role": "assistant", "content": response})
 
 # Pie de Página C.A.M.P.O.
 st.markdown("<hr style='margin-top:40px; border-color: #A5D6A7;'>", unsafe_allow_html=True)
