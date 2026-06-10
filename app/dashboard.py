@@ -24,7 +24,7 @@ try:
 except Exception as e:
     pass
 
-from src.models import train_viability_model, predict_viability, generate_project_proposal, get_project_type_details, predict_optimal_cycle, predict_livestock_economics, predict_crop_economics, compare_all_crops
+from src.models import train_viability_model, predict_viability, generate_project_proposal, get_project_type_details, predict_optimal_cycle, predict_livestock_economics, predict_crop_economics, compare_all_crops, DEPT_GENDER_STATS
 
 # Importar y recargar el asistente RAG
 import app.assistant
@@ -908,6 +908,43 @@ with tab_planning:
         with col_sel_c4:
             p_area = st.slider("🌿 Hectáreas a Sembrar", 0.5, 100.0, 5.0, step=0.5, key="p_area_val")
 
+        # ── Selector de Perfil del Productor (Equidad de Género y Relevo Generacional) ─────
+        is_dark = st.session_state.dark_mode
+        gender_bg   = "linear-gradient(135deg,#0F1F16,#162A1E)" if is_dark else "linear-gradient(135deg,#F3FBF0,#E6F4E0)"
+        gender_bdr  = "#81C784" if is_dark else "#388E3C"
+        gender_txt  = "#C8E6C9" if is_dark else "#1B5E20"
+        st.markdown(f"""
+        <div style="background:{gender_bg}; border-left:5px solid {gender_bdr}; border-radius:12px; padding:14px 20px; margin:14px 0 6px 0;">
+            <b style="color:{gender_txt}; font-size:14px;">♀️ Perfil del Productor/a — Equidad de Género y Relevo Generacional</b><br>
+            <span style="color:{gender_txt}; font-size:12px;">Si eres mujer rural o joven menor de 28 años, la IA activa la <b>Línea Especial de Crédito (LEC)</b> de FINAGRO con una tasa preferencial 2% menor a la del mercado.</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col_prof, col_gender_stats = st.columns([2, 3])
+        with col_prof:
+            p_producer_type = st.selectbox(
+                "👨‍🌾 Perfil del Productor/a",
+                ["General", "Mujer Rural (Línea LEC Preferente)", "Joven Rural (Relevo Generacional < 28 años)"],
+                key="p_producer_type_local"
+            )
+        with col_gender_stats:
+            # Buscar estadísticas de equidad para el departamento seleccionado
+            dept_key = p_dept if p_dept != "Todos" else None
+            gender_info = None
+            if dept_key:
+                # Intentar encontrar el departamento normalizado
+                for k in DEPT_GENDER_STATS:
+                    if k.lower() in dept_key.lower() or dept_key.lower() in k.lower():
+                        gender_info = DEPT_GENDER_STATS[k]
+                        break
+            if gender_info:
+                g1, g2, g3 = st.columns(3)
+                g1.metric("📚 Índice Paridad Género (Ed.)", f"{gender_info['ipg_educacion']:.2f}", help="1.0 = paridad perfecta")
+                g2.metric("👩 Mujeres Beneficiarias", f"{gender_info['mujeres_beneficiarias_pct']}%", help="Programas rurales MADR")
+                g3.metric("🌱 Jóvenes Productores", f"{gender_info['relevo_joven_pct']}%", help="Relevo generacional < 28 años")
+            else:
+                st.info("Selecciona un departamento específico para ver indicadores de equidad de género (IPG) y relevo generacional de la región.")
+
         # Filtrar datos agrícolas según la selección local de la pestaña (predictivo según la zona y cultivo)
         df_agro_local = df_agro.copy()
         if not df_agro.empty:
@@ -1002,6 +1039,24 @@ with tab_planning:
         # Inferencia reactiva inmediata al cambiar cualquier parámetro
         res = predict_optimal_cycle(p_crop, p_ph, p_alt, p_slope, p_om, p_text, p_temp, p_rain,
                                     dept=p_dept, mun=p_mun)
+
+        # ── Banner Territorial: Énfasis Caquetá / Guaviare (Estrategia 3) ───────────
+        _dept_low = p_dept.lower() if p_dept != "Todos" else ""
+        if any(z in _dept_low for z in ["caqueta", "caquetá", "guaviare", "putumayo"]):
+            _t_bg = "linear-gradient(135deg,#0A1F12,#0D2E1A)" if st.session_state.dark_mode else "linear-gradient(135deg,#E8F5E9,#C8E6C9)"
+            _t_bd = "#A5D6A7" if st.session_state.dark_mode else "#2E7D32"
+            _t_tx = "#C8E6C9" if st.session_state.dark_mode else "#1B5E20"
+            st.markdown(f"""
+            <div style="background:{_t_bg}; border:2px solid {_t_bd}; border-radius:14px; padding:16px 22px; margin:10px 0;">
+                <b style="color:{_t_tx}; font-size:15px;">🌿 Zona de Piloto Prioritario: {p_dept} — Amazonia / Piedemonte</b><br>
+                <span style="color:{_t_tx}; font-size:13px;">
+                    Esta región es el <strong>foco territorial del Proyecto C.A.M.P.O</strong> por su valor ecológico y oportunidad de 
+                    <strong>sustitución de cultivos ilícitos</strong> hacia cacao, café y agroforestería. 
+                    Las estimaciones incluyen el <em>bono de biodiversidad</em> de mercados de carbono (Acuerdo de Paris) 
+                    y los programas <strong>PDET</strong> del Gobierno Nacional.
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Mostrar de dónde vienen los datos de calibración
         data_src = res.get("data_source", "")
@@ -1059,6 +1114,25 @@ with tab_planning:
         score_val = score_map.get(status, 100)
         st.markdown(f"##### 🎯 Puntaje de Aptitud de su Terreno: **{score_val}%**", help="100% = su terreno es ideal para este cultivo | 0% = no es apto")
         st.progress(score_val / 100.0)
+
+        # ── Panel XAI: IA Explicable (Estrategia 2) ─────────────────────────────────
+        xai_data = res.get("xai_explanation", {})
+        if xai_data:
+            _xai_bg   = "linear-gradient(135deg,#0D1B2A,#162032)" if st.session_state.dark_mode else "linear-gradient(135deg,#EFF6FF,#DBEAFE)"
+            _xai_brd  = "#60A5FA" if st.session_state.dark_mode else "#1D4ED8"
+            _xai_ttl  = "#BFDBFE" if st.session_state.dark_mode else "#1E3A8A"
+            _xai_txt  = "#E0EEFE" if st.session_state.dark_mode else "#1E3A8A"
+            st.markdown(f"""
+            <div style="background:{_xai_bg}; border-left:6px solid {_xai_brd}; border-radius:14px; padding:18px 22px; margin:16px 0 8px 0;">
+                <b style="color:{_xai_ttl}; font-size:15px;">🤖 IA Explicable (XAI) — ¿Por qué la IA dice esto?</b><br>
+                <span style="color:{_xai_txt}; font-size:13px; line-height:1.7;">
+                    {xai_data.get("resumen", "")}<br><br>
+                    <b>Factores positivos detectados:</b> {" | ".join(xai_data.get("factores_positivos", []))}<br>
+                    <b>Factores limitantes detectados:</b> {" | ".join(xai_data.get("factores_limitantes", []) or ["Ninguno"])}<br><br>
+                    <em style="font-size:12px;">Modelo: {xai_data.get("modelo_base", "")} — Precisión: {xai_data.get("precision_modelo", "")} — Fuentes: {xai_data.get("fuente_datos", "")}</em>
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Panel Regulatorio con lenguaje campesino
         st.markdown("#### 📜 Lo que necesita saber antes de sembrar")
@@ -1142,8 +1216,25 @@ with tab_planning:
         # Inferencia económica
         eco_res = predict_crop_economics(
             p_crop, p_ph, p_alt, p_slope, p_om, p_text, p_temp, p_rain, p_area,
-            dept=p_dept, mun=p_mun
+            dept=p_dept, mun=p_mun, producer_type=p_producer_type
         )
+
+        # Mostrar LEC FINAGRO si aplica beneficio de tasa
+        if eco_res.get("lec_finagro_activo"):
+            _lec_bg  = "linear-gradient(135deg,#0F2027,#203A43,#2C5364)" if st.session_state.dark_mode else "linear-gradient(135deg,#E0F7FA,#B2EBF2)"
+            _lec_brd = "#4DD0E1" if st.session_state.dark_mode else "#00ACC1"
+            _lec_tx  = "#E0F7FA" if st.session_state.dark_mode else "#006064"
+            st.markdown(f"""
+            <div style="background:{_lec_bg}; border-left:6px solid {_lec_brd}; border-radius:12px; padding:14px 20px; margin:10px 0;">
+                <b style="color:{_lec_tx}; font-size:14px;">🏦 ¡Beneficio Activado! Línea Especial de Crédito (LEC) FINAGRO</b><br>
+                <span style="color:{_lec_tx}; font-size:13px;">
+                    Como <b>{p_producer_type}</b>, tienes derecho a una <b>tasa de interés preferencial 2% menor</b> a la del mercado comercial.
+                    Esto reduce el costo de financiamiento de tu cultivo.
+                    La tasa aplicada en esta simulación: <b>{eco_res.get('tasa_credito_pct', 'N/A')}% E.A.</b>
+                    — <em>Fuente: FINAGRO, Circular Reglamentaria 2024.</em>
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Tarjetas de KPI
         col_eco1, col_eco2, col_eco3, col_eco4 = st.columns(4)
@@ -1249,7 +1340,7 @@ with tab_planning:
         # Comparación de todos los cultivos
         st.markdown("#### 🌾 Comparación de Rentabilidad con otros Cultivos")
         st.write("A continuación se compara el beneficio neto estimado de su terreno si sembrara otros cultivos alternativos:")
-        all_crops_res = compare_all_crops(p_ph, p_alt, p_slope, p_om, p_text, p_temp, p_rain, p_area, dept=p_dept, mun=p_mun)
+        all_crops_res = compare_all_crops(p_ph, p_alt, p_slope, p_om, p_text, p_temp, p_rain, p_area, dept=p_dept, mun=p_mun, producer_type=p_producer_type)
         df_comp = pd.DataFrame([
             {"Cultivo": c["crop"], "Utilidad Neta (COP)": c["net_profit"], "ROI (%)": c["roi_pct"]}
             for c in all_crops_res
@@ -1310,7 +1401,11 @@ with tab_planning:
             g_herd = st.slider(f"🐄 Número de Animales en el Hato", 1, 1000, default_herd, step=5, key="g_herd_val")
             
         # Inferencia económica y de cumplimiento ganadero
-        g_res = predict_livestock_economics(g_dept, g_mun, g_species, g_purpose, g_herd, g_area)
+        # Perfil productor en ganadería (LEC FINAGRO)
+        g_producer_type_options = ["General", "Mujer Rural (Línea LEC Preferente)", "Joven Rural (Relevo Generacional < 28 años)"]
+        g_producer_type = st.selectbox("👨‍🌾 Perfil del Productor/a (FINAGRO)", g_producer_type_options, key="g_producer_type_local",
+                                       help="Las mujeres rurales y jóvenes menores de 28 años acceden a la Línea Especial de Crédito de FINAGRO con tasa preferencial.")
+        g_res = predict_livestock_economics(g_dept, g_mun, g_species, g_purpose, g_herd, g_area, producer_type=g_producer_type)
         
         # 1. Métricas Financieras
         st.markdown("---")

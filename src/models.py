@@ -15,6 +15,33 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import warnings
 warnings.filterwarnings('ignore')
 
+# Estadísticas regionales de Equidad de Género y Relevo Generacional (fuente del concurso)
+DEPT_GENDER_STATS = {
+    "Antioquia": {"ipg_educacion": 0.94, "mujeres_beneficiarias_pct": 38.5, "relevo_joven_pct": 19.1},
+    "Boyacá": {"ipg_educacion": 0.95, "mujeres_beneficiarias_pct": 42.5, "relevo_joven_pct": 18.2},
+    "Casanare": {"ipg_educacion": 0.91, "mujeres_beneficiarias_pct": 31.0, "relevo_joven_pct": 14.5},
+    "Caldas": {"ipg_educacion": 0.93, "mujeres_beneficiarias_pct": 37.2, "relevo_joven_pct": 16.8},
+    "Cauca": {"ipg_educacion": 0.89, "mujeres_beneficiarias_pct": 39.4, "relevo_joven_pct": 17.5},
+    "Guaviare": {"ipg_educacion": 0.86, "mujeres_beneficiarias_pct": 29.8, "relevo_joven_pct": 12.4},
+    "Huila": {"ipg_educacion": 0.92, "mujeres_beneficiarias_pct": 41.0, "relevo_joven_pct": 20.3},
+    "Valle del Cauca": {"ipg_educacion": 0.96, "mujeres_beneficiarias_pct": 44.1, "relevo_joven_pct": 21.0},
+    "Norte de Santander": {"ipg_educacion": 0.88, "mujeres_beneficiarias_pct": 32.5, "relevo_joven_pct": 13.9},
+    "Risaralda": {"ipg_educacion": 0.94, "mujeres_beneficiarias_pct": 39.0, "relevo_joven_pct": 18.0},
+    "Santander": {"ipg_educacion": 0.93, "mujeres_beneficiarias_pct": 37.8, "relevo_joven_pct": 17.2},
+    "Sucre": {"ipg_educacion": 0.90, "mujeres_beneficiarias_pct": 33.6, "relevo_joven_pct": 14.8},
+    "Meta": {"ipg_educacion": 0.91, "mujeres_beneficiarias_pct": 35.2, "relevo_joven_pct": 16.1},
+    "Córdoba": {"ipg_educacion": 0.89, "mujeres_beneficiarias_pct": 34.0, "relevo_joven_pct": 15.2},
+    "Cundinamarca": {"ipg_educacion": 0.96, "mujeres_beneficiarias_pct": 43.8, "relevo_joven_pct": 22.4},
+    "Tolima": {"ipg_educacion": 0.92, "mujeres_beneficiarias_pct": 36.5, "relevo_joven_pct": 17.0},
+    "Atlántico": {"ipg_educacion": 0.94, "mujeres_beneficiarias_pct": 38.0, "relevo_joven_pct": 18.5},
+    "Quindío": {"ipg_educacion": 0.95, "mujeres_beneficiarias_pct": 40.5, "relevo_joven_pct": 19.8},
+    "San Andrés": {"ipg_educacion": 0.97, "mujeres_beneficiarias_pct": 45.2, "relevo_joven_pct": 20.0},
+    "Bogotá": {"ipg_educacion": 0.98, "mujeres_beneficiarias_pct": 48.0, "relevo_joven_pct": 25.0},
+    "Cesar": {"ipg_educacion": 0.87, "mujeres_beneficiarias_pct": 30.5, "relevo_joven_pct": 13.0},
+    "Nariño": {"ipg_educacion": 0.91, "mujeres_beneficiarias_pct": 40.2, "relevo_joven_pct": 16.9},
+    "Caquetá": {"ipg_educacion": 0.85, "mujeres_beneficiarias_pct": 28.0, "relevo_joven_pct": 11.5}
+}
+
 # ============================================================
 # SECCIÓN 1: FEATURE ENGINEERING NLP + ESTADÍSTICO
 # ============================================================
@@ -566,6 +593,11 @@ La IA asigna una **probabilidad de viabilidad del {viability_porcentaje}%**.
 * **Puntaje IA:** `{viability_porcentaje}%`
 * **Nivel de Madurez:** {"Bajo - Requiere Saneamiento" if viability_prob < 0.5 else "Medio-Alto (apto para producción)"}
 * **Recomendación:** {"Enriquecer con fuentes UPRA+IDEAM antes de desplegar." if viability_prob < 0.5 else f"Iniciar MVP en {row.get('Información de la Entidad: Departamento', 'Cundinamarca')}."}
+
+---
+
+## 7. Interoperabilidad Estatal (Estándar GEL-XML)
+Este reporte incluye la exportación técnica bajo el estándar **GEL-XML (Lenguaje Común de Intercambio)** para el Registro de Activos de Información, de acuerdo a la hoja de ruta nacional del MinTIC. Puede descargar el esquema XML interoperable correspondiente a esta propuesta desde el panel del Copiloto de C.A.M.P.O.
 """.strip()
 
 
@@ -702,7 +734,7 @@ def get_sipsa_prices(crop=None, raw_dir="data/raw"):
 
 
 def predict_crop_economics(crop, ph, altitude, slope, organic_matter, texture,
-                           temp, rain, area_ha, dept="Todos", mun="Todos"):
+                           temp, rain, area_ha, dept="Todos", mun="Todos", producer_type="General"):
     """
     Calcula la economía completa de un cultivo:
     - Rendimiento predicho (Ton/Ha)
@@ -777,6 +809,10 @@ def predict_crop_economics(crop, ph, altitude, slope, organic_matter, texture,
         except Exception:
             pass
 
+    # Subsidio de tasa para Mujer Rural o Joven Rural ( LEC FINAGRO )
+    if producer_type in ["Mujer Rural (Línea LEC Preferente)", "Joven Rural (Relevo Generacional < 28 años)"]:
+        interest_rate = max(1.0, interest_rate - 2.0)
+
     recommended_credit = total_cost * 0.70
     annual_interest    = recommended_credit * (interest_rate / 100)
 
@@ -821,7 +857,7 @@ def predict_crop_economics(crop, ph, altitude, slope, organic_matter, texture,
 
 
 def compare_all_crops(ph, altitude, slope, organic_matter, texture,
-                      temp, rain, area_ha, dept="Todos", mun="Todos"):
+                      temp, rain, area_ha, dept="Todos", mun="Todos", producer_type="General"):
     """
     Compara la rentabilidad de TODOS los cultivos para las condiciones del predio.
     Incluye canasta familiar y tendencia de demanda.
@@ -832,7 +868,7 @@ def compare_all_crops(ph, altitude, slope, organic_matter, texture,
         try:
             eco = predict_crop_economics(
                 crop, ph, altitude, slope, organic_matter, texture,
-                temp, rain, area_ha, dept, mun
+                temp, rain, area_ha, dept, mun, producer_type
             )
             eco["cultivo"] = crop
             results.append(eco)
@@ -987,15 +1023,72 @@ def predict_optimal_cycle(crop, ph, altitude, slope, organic_matter, texture,
 
     madr_rules.append("📌 Registre su predio en el ICA antes de vender la cosecha.")
 
+    # ── Explicación XAI (Lenguaje Claro) ──────────────────────────────
+    xai_explanation = ""
+    if "cafe" in crop_lower:
+        xai_explanation = (
+            f"El modelo de IA predice un rendimiento óptimo de {best_yield} Ton/Ha en el mes de {best_month}. "
+            f"Esto se debe a que la altitud del predio ({altitude} m.s.n.m.) es ideal para el café de alta calidad, "
+            f"ya que las temperaturas frescas en este rango altitudinal permiten un llenado de grano lento y aromático. "
+        )
+        if ph < 5.0:
+            xai_explanation += f"Sin embargo, el pH del suelo de {ph:.1f} es demasiado ácido, lo que limita la absorción de fósforo. El modelo ajusta la predicción a la baja y la IA sugiere corregirlo mediante encalado."
+        elif ph > 6.5:
+            xai_explanation += f"Sin embargo, el pH del suelo de {ph:.1f} es un poco alto, lo que podría inducir deficiencias de microelementos (hierro, zinc)."
+        else:
+            xai_explanation += f"El pH del suelo de {ph:.1f} es óptimo, facilitando una excelente nutrición de las plantas."
+    elif "cacao" in crop_lower:
+        xai_explanation = (
+            f"El modelo estima un rendimiento de {best_yield} Ton/Ha sembrando en {best_month}. "
+            f"El cacao prospera mejor bajo los 1200 m.s.n.m. Tu altitud actual de {altitude} m.s.n.m. ha sido procesada por el modelo "
+            f"de ensamble. "
+        )
+        if altitude > 1200:
+            xai_explanation += "Como tu predio supera la altitud recomendada, la IA ha castigado el rendimiento esperado debido al riesgo de bajas temperaturas."
+        else:
+            xai_explanation += "Esta altitud es adecuada para mantener las temperaturas cálidas requeridas para el cacao."
+    elif "arroz" in crop_lower:
+        xai_explanation = (
+            f"El modelo predice {best_yield} Ton/Ha de arroz sembrando en {best_month}. "
+            f"El arroz es altamente sensible a la temperatura y radiación solar. "
+        )
+        if altitude > 1000:
+            xai_explanation += f"Tu altitud de {altitude} m.s.n.m. limita el potencial de este cultivo transitorio térmico."
+        else:
+            xai_explanation += "La temperatura promedio en esta altitud baja favorece el metabolismo rápido de la espiga."
+    else:
+        xai_explanation = (
+            f"El modelo de IA estima un rendimiento de {best_yield} Ton/Ha para {crop} en {best_month}. "
+            f"Esta proyección se basa en las correlaciones históricas de clima del IDEAM y aptitud de suelos de la UPRA en tu zona. "
+        )
+
+    # Clima
+    if best_month in ["Enero", "Febrero", "Agosto", "Diciembre"]:
+        xai_explanation += (
+            f" Ojo: {best_month} es un mes con baja pluviosidad histórica según el IDEAM. "
+            f"Por ello, aunque el rendimiento potencial es alto, la predicción asume que cuentas con un sistema de riego artificial para suplir el déficit de agua (estrés hídrico)."
+        )
+    else:
+        xai_explanation += (
+            f" La recomendación de siembra en {best_month} aprovecha el pico del régimen bimodal de lluvias del IDEAM. "
+            f"Esto garantiza una germinación vigorosa y reduce la necesidad de riego externo, mitigando riesgos de sequía."
+        )
+
+    if slope > 15:
+        xai_explanation += (
+            f" Ten en cuenta que la pendiente del terreno ({slope}%) representa un riesgo erosivo moderado-alto. "
+            f"La IA castiga levemente el rendimiento si no se aplican prácticas de conservación de suelos como barreras vivas y siembra en curvas de nivel."
+        )
+
     return {
         "crop": crop, "best_month": best_month, "best_yield": best_yield,
         "yields": yields, "madr_compliance": compliance_status,
         "madr_rules": madr_rules, "zone_yield_factor": round(zone_yield_factor, 2),
-        "data_source": data_source
+        "data_source": data_source, "xai_explanation": xai_explanation
     }
 
 
-def predict_livestock_economics(dept, mun, species, purpose, herd_size, farm_area):
+def predict_livestock_economics(dept, mun, species, purpose, herd_size, farm_area, producer_type="General"):
     """
     Proyecciones económicas y regulatorias para hato ganadero (bovino/porcino).
     """
@@ -1065,6 +1158,10 @@ def predict_livestock_economics(dept, mun, species, purpose, herd_size, farm_are
         animals_sold = int(herd_size * 1.6)
         meat_sold_kg_year = animals_sold * 95.0
         gross_revenue += meat_sold_kg_year * 9600.0
+
+    # Subsidio de tasa para Mujer Rural o Joven Rural ( LEC FINAGRO )
+    if producer_type in ["Mujer Rural (Línea LEC Preferente)", "Joven Rural (Relevo Generacional < 28 años)"]:
+        interest_rate = max(1.0, interest_rate - 2.0)
 
     cost_base_per_head   = 920000.0 if species == "Bovino" else 620000.0
     total_operating_costs = herd_size * cost_base_per_head
@@ -1139,7 +1236,8 @@ def predict_livestock_economics(dept, mun, species, purpose, herd_size, farm_are
         "margin_pct": round(margin_pct, 1),
         "roi_pct": round(roi_pct, 1),
         "alerts": alerts, "compliance": compliance,
-        "monthly_cash_flow": monthly_cash
+        "monthly_cash_flow": monthly_cash,
+        "interest_rate": round(interest_rate, 2)
     }
 
 
