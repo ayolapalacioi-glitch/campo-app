@@ -1025,14 +1025,39 @@ with tab_planning:
             
         # Gráfica de flujo de caja mensual
         st.markdown("#### 📅 Flujo de Caja Mensual del Cultivo")
+        # Gráfica de flujo de caja mensual
+        st.markdown("#### 📅 Flujo de Caja Mensual del Cultivo")
         df_cash = pd.DataFrame(eco_res["monthly_cash_flow"])
         fig_cash = go.Figure()
-        fig_cash.add_trace(go.Bar(x=df_cash["mes"], y=df_cash["ingresos"], name="Ingresos", marker_color="#2E7D32"))
-        fig_cash.add_trace(go.Bar(x=df_cash["mes"], y=df_cash["costos"], name="Costos", marker_color="#64748B"))
-        fig_cash.add_trace(go.Scatter(x=df_cash["mes"], y=df_cash["neto"], name="Flujo Neto", line=dict(color="#8B5CF6", width=3)))
-        fig_cash.update_layout(barmode="group", title="Proyección de Flujo de Caja por Mes",
-                               plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                               xaxis_title="Mes", yaxis_title="COP ($)")
+        fig_cash.add_trace(go.Bar(
+            x=df_cash["mes"], y=df_cash["ingresos"], name="Ingresos", 
+            marker=dict(color="#2E7D32", opacity=0.85, line=dict(color="#1B5E20", width=1.5)),
+            hovertemplate="<b>%{x}</b><br>Ingresos: $%{y:,} COP<extra></extra>"
+        ))
+        fig_cash.add_trace(go.Bar(
+            x=df_cash["mes"], y=df_cash["costos"], name="Costos", 
+            marker=dict(color="#64748B", opacity=0.85, line=dict(color="#475569", width=1.5)),
+            hovertemplate="<b>%{x}</b><br>Costos: $%{y:,} COP<extra></extra>"
+        ))
+        fig_cash.add_trace(go.Scatter(
+            x=df_cash["mes"], y=df_cash["neto"], name="Flujo Neto", 
+            mode='lines+markers',
+            line=dict(color="#8B5CF6", width=4, shape='spline'),
+            marker=dict(size=10, symbol='circle', color='#8B5CF6', line=dict(color='white', width=2)),
+            hovertemplate="<b>%{x}</b><br>Flujo Neto: $%{y:,} COP<extra></extra>"
+        ))
+        fig_cash.update_layout(
+            barmode="group", 
+            title="Proyección Premium de Flujo de Caja por Mes",
+            template="plotly_white",
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            xaxis_title="Mes del Proyecto", yaxis_title="Millones COP ($)",
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            margin=dict(l=20, r=20, t=60, b=20)
+        )
+        fig_cash.update_yaxes(gridcolor="rgba(0,0,0,0.05)", zerolinecolor="rgba(0,0,0,0.1)")
+        fig_cash.update_xaxes(gridcolor="rgba(0,0,0,0.05)")
         st.plotly_chart(fig_cash, use_container_width=True)
         
         # Comparación de todos los cultivos
@@ -1043,10 +1068,23 @@ with tab_planning:
             {"Cultivo": c["crop"], "Utilidad Neta (COP)": c["net_profit"], "ROI (%)": c["roi_pct"]}
             for c in all_crops_res
         ])
-        fig_comp = px.bar(df_comp, x="Cultivo", y="Utilidad Neta (COP)", color="ROI (%)",
-                          title="Beneficio Neto Proyectado por Cultivo en su Predio",
-                          color_continuous_scale="RdYlGn", text_auto=True)
-        fig_comp.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+        fig_comp = px.bar(
+            df_comp, x="Cultivo", y="Utilidad Neta (COP)", color="ROI (%)",
+            title="Beneficio Neto Proyectado por Cultivo en su Predio",
+            color_continuous_scale="Viridis", text_auto=".2s",
+            hover_data={"Utilidad Neta (COP)": ':,'}
+        )
+        fig_comp.update_traces(
+            textfont_size=13, textangle=0, textposition="outside", cliponaxis=False,
+            marker_line_color='black', marker_line_width=1, opacity=0.9
+        )
+        fig_comp.update_layout(
+            template="plotly_white",
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            xaxis_title="", yaxis_title="COP ($)",
+            margin=dict(t=50, b=20, l=20, r=20)
+        )
+        fig_comp.update_yaxes(gridcolor="rgba(0,0,0,0.05)")
         st.plotly_chart(fig_comp, use_container_width=True)
 
     with planning_sub2:
@@ -1710,15 +1748,6 @@ with tab_chat:
     </div>
     """, unsafe_allow_html=True)
     
-    # Configuración de API Key en la interfaz
-    st.markdown("##### 🔑 Configuración del Cerebro de IA")
-    gemini_api_key_input = st.text_input(
-        "Clave de API de Google Gemini (Opcional — deje vacío para usar fallback local basado en datos oficiales):",
-        value=os.environ.get("GEMINI_API_KEY", ""),
-        type="password",
-        help="Obtenga una clave gratuita en Google AI Studio para activar la IA generativa fluida."
-    )
-    
     # Inicializar el asistente
     assistant = CampoAssistant()
     
@@ -1741,7 +1770,7 @@ with tab_chat:
         
         # Generar respuesta
         with st.spinner("Revisando las bases de datos del campo..."):
-            response = assistant.answer_question(user_query, api_key=gemini_api_key_input)
+            response = assistant.answer_question(user_query)
             
         # Mostrar respuesta
         st.chat_message("assistant", avatar="🤖").write(response)

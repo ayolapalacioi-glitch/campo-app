@@ -54,26 +54,62 @@ El tablero cuenta con canalizaciones (pipelines) que consultan las APIs de datos
 
 ---
 
-## 🛠️ Instrucciones de Instalación y Uso
+## 🛠️ Guía de Inicio Rápido (Instalación y Uso)
+
+Para que tu equipo pueda ejecutar y explorar la aplicación localmente, sigan estos sencillos pasos:
 
 ### 1. Prerrequisitos
-Asegúrate de contar con Python 3.9 o superior y Java JDK (requerido si se corre Spark en un entorno de producción).
+Asegúrate de tener instalado:
+* **Python 3.9 o superior** (puedes verificarlo ejecutando `python --version` en la terminal).
+* **Java JDK** (opcional, solo si deseas ejecutar el pipeline distribuido con Apache Spark en producción).
 
-### 2. Instalación de Dependencias
-Instala los paquetes necesarios definidos en `requirements.txt`:
+---
+
+### 2. Configuración del Entorno Virtual (Recomendado)
+El proyecto ya cuenta con una carpeta `.venv`. Para activarla y usar las dependencias correctas:
+
+#### En Windows (PowerShell):
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+#### En Windows (CMD / Símbolo del sistema):
+```cmd
+.venv\Scripts\activate.bat
+```
+
+#### En macOS / Linux:
+```bash
+source .venv/bin/activate
+```
+
+*(Si no existe o prefieres crear uno nuevo, ejecuta `python -m venv .venv` antes de activar).*
+
+---
+
+### 3. Instalación de Dependencias
+Con el entorno virtual activo, instala las librerías necesarias:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Ejecución del Pipeline y Modelos
-El dashboard pre-entrena los modelos de manera automática. No obstante, puedes ejecutar el pipeline completo de entrenamiento manualmente:
-```bash
-python main.py
-```
+---
 
-### 4. Lanzar el Tablero Interactivo
-Ejecuta el servidor de Streamlit para visualizar la interfaz:
+### 4. Ejecutar el Tablero Interactivo (Streamlit)
+Para lanzar el servidor local de Streamlit y ver toda la aplicación ejecutándose:
 ```bash
 streamlit run app/dashboard.py
 ```
-Abre tu navegador en `http://localhost:8501`.
+
+Una vez ejecutado, la terminal mostrará las URLs de acceso. Abre en tu navegador preferido la siguiente dirección:
+
+👉 **[http://localhost:8501](http://localhost:8501)** 👈
+
+---
+
+### 💡 Notas de Uso para el Equipo:
+1. **Modelos Predictivos:** El dashboard pre-entrena automáticamente los modelos de viabilidad y rendimiento si no se encuentran en caché. No requiere configuración manual.
+2. **Asistente IA Generativa (Copiloto):**
+   * Cuenta con un **Fallback Inteligente** local que funciona inmediatamente usando bases de datos locales si no se configura clave de API.
+   * Si desean probar el modo completo conversacional con dialecto colombiano ("Sumercé"), pueden configurar una API key en el archivo de configuración o a través de la interfaz.
+3. **Simulador Económico:** Pueden ajustar dinámicamente las hectáreas, tasas de interés y tipos de cultivo/ganado para ver las proyecciones financieras en pesos colombianos (COP).

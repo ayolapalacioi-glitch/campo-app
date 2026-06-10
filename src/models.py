@@ -176,11 +176,12 @@ class NLPFeatureExtractor(BaseEstimator, TransformerMixin):
 def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.csv",
                           model_dir="data/processed"):
     """
-    Entrena un modelo de clasificación de alta precisión (≥95%) usando
-    XGBoost + feature engineering NLP + VotingClassifier para predecir
-    si un dataset es viable para el ecosistema público agrario.
+    Entrena un modelo de clasificación de alta precisión (CV Acc ~90%) usando
+    un ensamble apilado (StackingClassifier) sobre features NLP (TF-IDF) + numéricos.
     """
     from src.cleaning import clean_challenge_catalog
+    from sklearn.ensemble import StackingClassifier, ExtraTreesClassifier
+    from sklearn.linear_model import LogisticRegression
 
     if not os.path.exists(catalog_path):
         print("Catálogo limpio no encontrado. Procesando e integrando catálogo...")
@@ -194,53 +195,54 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
     print(f"\nCargando catálogo para entrenamiento: {df.shape[0]} registros.")
     print(f"Distribución es_viable: {df['es_viable'].value_counts().to_dict()}")
 
-    # ── 1. Preparar features ──────────────────────────────────────────────
-    extractor = NLPFeatureExtractor()
-    X_raw = extractor.transform(df)
+    # ── 1. Preparar features de texto con TF-IDF ───────────────────────────
+    tfidf_title = TfidfVectorizer(max_features=50)
+    X_title = tfidf_title.fit_transform(df['Titulo'].fillna('').astype(str)).toarray()
 
+    tfidf_desc = TfidfVectorizer(max_features=50)
+    X_desc = tfidf_desc.fit_transform(df['Descripción'].fillna('').astype(str)).toarray()
+
+    tfidf_just = TfidfVectorizer(max_features=25)
+    X_just = tfidf_just.fit_transform(df['ds_justificacion'].fillna('').astype(str)).toarray()
+
+    # ── 2. Preparar features estructurados y NLP base ──────────────────────
+    extractor = NLPFeatureExtractor()
+    X_base = extractor.transform(df)
+
+    # Combinar todas las características
+    X_all = np.hstack([X_base, X_title, X_desc, X_just])
     y = df["es_viable"].astype(int)
 
     # Escalar para estabilidad numérica
     scaler = StandardScaler()
-    X = scaler.fit_transform(X_raw)
+    X = scaler.fit_transform(X_all)
 
-    # ── 2. Split estratificado ────────────────────────────────────────────
+    # ── 3. Split estratificado para validación local ────────────────────────
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # ── 3. Modelos base ───────────────────────────────────────────────────
+    # ── 4. Modelos base y Stacking ──────────────────────────────────────────
     try:
         from xgboost import XGBClassifier
         xgb = XGBClassifier(
-            n_estimators=500,
-            max_depth=6,
-            learning_rate=0.05,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            min_child_weight=3,
-            gamma=0.1,
-            reg_alpha=0.1,
-            reg_lambda=1.0,
-            use_label_encoder=False,
-            eval_metric='logloss',
+            n_estimators=300,
+            max_depth=5,
+            learning_rate=0.1,
             random_state=42,
-            n_jobs=-1
+            n_jobs=-1,
+            eval_metric='logloss'
         )
         has_xgb = True
     except ImportError:
         has_xgb = False
-        print("XGBoost no disponible, usando GradientBoosting")
 
     try:
         from lightgbm import LGBMClassifier
         lgbm = LGBMClassifier(
-            n_estimators=500,
-            max_depth=6,
-            learning_rate=0.05,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            min_child_samples=10,
+            n_estimators=300,
+            max_depth=5,
+            learning_rate=0.1,
             random_state=42,
             n_jobs=-1,
             verbose=-1
@@ -248,81 +250,85 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
         has_lgbm = True
     except ImportError:
         has_lgbm = False
+        
+    from sklearn.ensemble import HistGradientBoostingClassifier
+    hgb = HistGradientBoostingClassifier(max_iter=300, max_depth=5, random_state=42)
 
     rf = RandomForestClassifier(
         n_estimators=300,
-        max_depth=12,
-        min_samples_leaf=2,
-        max_features='sqrt',
-        class_weight='balanced',
+        max_depth=15,
         random_state=42,
         n_jobs=-1
     )
 
-    gb = GradientBoostingClassifier(
+    et = ExtraTreesClassifier(
         n_estimators=300,
-        max_depth=5,
-        learning_rate=0.08,
-        subsample=0.85,
-        random_state=42
+        max_depth=15,
+        random_state=42,
+        n_jobs=-1
     )
 
-    # ── 4. Ensamble VotingClassifier ──────────────────────────────────────
-    estimators = [('rf', rf), ('gb', gb)]
+    estimators = [('rf', rf), ('et', et), ('hgb', hgb)]
     if has_xgb:
-        estimators.insert(0, ('xgb', xgb))
+        estimators.append(('xgb', xgb))
     if has_lgbm:
         estimators.append(('lgbm', lgbm))
 
-    voting_model = VotingClassifier(estimators=estimators, voting='soft', n_jobs=-1)
+    stack_model = StackingClassifier(
+        estimators=estimators,
+        final_estimator=LogisticRegression(C=1.0),
+        n_jobs=-1
+    )
 
-    # ── 5. Entrenamiento ──────────────────────────────────────────────────
-    print(f"\nEntrenando VotingClassifier con {len(estimators)} modelos: {[e[0] for e in estimators]}")
-    voting_model.fit(X_train, y_train)
+    # ── 5. Entrenamiento y Evaluación ───────────────────────────────────────
+    print(f"\nEntrenando StackingClassifier con {len(estimators)} modelos base...")
+    stack_model.fit(X_train, y_train)
 
-    # ── 6. Evaluación ─────────────────────────────────────────────────────
-    y_pred = voting_model.predict(X_test)
+    y_pred = stack_model.predict(X_test)
     accuracy  = accuracy_score(y_test, y_pred)
     precision = precision_score(y_test, y_pred, zero_division=0)
     recall    = recall_score(y_test, y_pred, zero_division=0)
     f1        = f1_score(y_test, y_pred, zero_division=0)
 
-    print("\n--- METRICAS DEL MODELO DE CLASIFICACION (ENSEMBLE) ---")
+    print("\n--- METRICAS DE VALIDACION (STACKING) ---")
     print(f"Precision Global (Accuracy): {round(accuracy * 100, 2)}%")
     print(f"Precision de Clase (Precision): {round(precision * 100, 2)}%")
     print(f"Sensibilidad (Recall): {round(recall * 100, 2)}%")
     print(f"F1-Score: {round(f1 * 100, 2)}%")
 
-    # Cross-validation para mayor confianza
+    # Cross-validation
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    cv_scores = cross_val_score(voting_model, X, y, cv=cv, scoring='accuracy', n_jobs=-1)
+    cv_scores = cross_val_score(stack_model, X, y, cv=cv, scoring='accuracy', n_jobs=-1)
     print(f"\nCross-Validation (5-fold): {round(cv_scores.mean() * 100, 2)}% ± {round(cv_scores.std() * 100, 2)}%")
 
-    # ── 7. Re-entrenar con todo el conjunto ───────────────────────────────
+    # Re-entrenar con todo el catálogo para producción
     print("\nRe-entrenando con todo el catalogo para produccion...")
-    voting_model.fit(X, y)
+    stack_model.fit(X, y)
 
     os.makedirs(model_dir, exist_ok=True)
     model_path = os.path.join(model_dir, "dataset_viability_model.joblib")
 
-    # Guardar el pipeline completo (extractor + scaler + modelo)
+    # Exportar pipeline completo con vectorizadores text_mining
     full_pipeline = {
         'extractor': extractor,
+        'tfidf_title': tfidf_title,
+        'tfidf_desc': tfidf_desc,
+        'tfidf_just': tfidf_just,
         'scaler': scaler,
-        'model': voting_model,
+        'model': stack_model,
         'accuracy': round(accuracy * 100, 2),
         'f1': round(f1 * 100, 2),
         'cv_mean': round(cv_scores.mean() * 100, 2)
     }
     joblib.dump(full_pipeline, model_path)
-    print(f"Pipeline completo exportado a: {model_path}")
+    print(f"Pipeline apilado exportado a: {model_path}")
 
     return full_pipeline
 
 
 def predict_viability(input_data, model_path="data/processed/dataset_viability_model.joblib"):
     """
-    Inferencia del modelo para predecir si un dataset es viable.
+    Inferencia del modelo apilado para predecir si un dataset es viable.
     Compatible con dict, DataFrame o Series.
     """
     # Convertir a DataFrame/Series para poder hacer lookup e inferencia estándar
@@ -359,19 +365,41 @@ def predict_viability(input_data, model_path="data/processed/dataset_viability_m
 
     pipeline_data = joblib.load(model_path)
 
-    # Compatibilidad con modelos legacy
+    # Compatibilidad con modelos legacy o apilados
     if isinstance(pipeline_data, dict) and 'model' in pipeline_data:
         extractor = pipeline_data['extractor']
+        tfidf_title = pipeline_data.get('tfidf_title')
+        tfidf_desc = pipeline_data.get('tfidf_desc')
+        tfidf_just = pipeline_data.get('tfidf_just')
         scaler    = pipeline_data['scaler']
         model     = pipeline_data['model']
     else:
         pipeline_data = train_viability_model()
         extractor = pipeline_data['extractor']
+        tfidf_title = pipeline_data['tfidf_title']
+        tfidf_desc = pipeline_data['tfidf_desc']
+        tfidf_just = pipeline_data['tfidf_just']
         scaler    = pipeline_data['scaler']
         model     = pipeline_data['model']
 
-    X_raw = extractor.transform(input_data_df)
-    X     = scaler.transform(X_raw)
+    # Extracción de base features
+    X_base = extractor.transform(input_data_df)
+
+    # Extracción de text features
+    if tfidf_title is not None and tfidf_desc is not None and tfidf_just is not None:
+        title_text = input_data_df["Titulo"].fillna("").astype(str) if "Titulo" in input_data_df.columns else pd.Series("", index=input_data_df.index)
+        desc_text  = input_data_df["Descripción"].fillna("").astype(str) if "Descripción" in input_data_df.columns else pd.Series("", index=input_data_df.index)
+        just_text  = input_data_df["ds_justificacion"].fillna("").astype(str) if "ds_justificacion" in input_data_df.columns else pd.Series("", index=input_data_df.index)
+
+        X_title = tfidf_title.transform(title_text).toarray()
+        X_desc  = tfidf_desc.transform(desc_text).toarray()
+        X_just  = tfidf_just.transform(just_text).toarray()
+
+        X_all = np.hstack([X_base, X_title, X_desc, X_just])
+    else:
+        X_all = X_base
+
+    X = scaler.transform(X_all)
 
     prediction   = model.predict(X)[0]
     probabilities = model.predict_proba(X)[0]

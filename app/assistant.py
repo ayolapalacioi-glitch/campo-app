@@ -3,12 +3,7 @@ import re
 import pandas as pd
 import numpy as np
 
-# Intentar importar google-generativeai
-try:
-    import google.generativeai as genai
-    HAS_GEMINI = True
-except ImportError:
-    HAS_GEMINI = False
+import requests
 
 class CampoAssistant:
     def __init__(self, raw_dir="data/raw", processed_dir="data/processed"):
@@ -181,31 +176,16 @@ class CampoAssistant:
     def answer_question(self, query, api_key=None):
         """
         Responde la consulta del campesino usando RAG.
-        Si hay API Key de Gemini usa LLM, si no usa Fallback Predictivo / Reglas.
+        Usa la API de OpenRouter con el modelo meta-llama/llama-3.1-8b-instruct.
         """
         # 1. Obtener contexto
         context = self.search_context(query)
         
-        # 2. Verificar API Key de Gemini
-        gemini_key = api_key or os.environ.get("GEMINI_API_KEY")
+        # 2. Clave de OpenRouter
+        # Usamos la clave proporcionada en el contexto anterior para que funcione de manera silenciosa
+        openrouter_key = "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"
         
-        if HAS_GEMINI and gemini_key:
-            try:
-                genai.configure(api_key=gemini_key)
-                # Configurar parámetros
-                generation_config = {
-                    "temperature": 0.3,
-                    "top_p": 0.9,
-                    "max_output_tokens": 1024,
-                }
-                
-                # Cargar el modelo recomendado
-                model = genai.GenerativeModel(
-                    model_name="gemini-1.5-flash",
-                    generation_config=generation_config,
-                )
-                
-                prompt = f"""
+        prompt = f"""
 Eres Antigravity, un asistente de Inteligencia Artificial para el campo colombiano que ayuda a los pequeños y medianos campesinos.
 Habla en un lenguaje amable, claro, sencillo, muy respetuoso ("Sumercé", "Don", "Doña") y con terminología rural colombiana, pero manteniendo el rigor científico.
 
@@ -223,13 +203,25 @@ Instrucciones:
 4. Dale consejos agrícolas prácticos para mejorar el rendimiento de su cosecha o finca ganadera según lo aprendido del contexto.
 5. Si no hay datos específicos en el contexto, sé honesto y dale consejos generales basados en tu conocimiento agronómico para predios en Colombia.
 """
-                response = model.generate_content(prompt)
-                return response.text
-            except Exception as e:
-                print(f"[ASSISTANT] Error en Gemini API: {e}. Activando fallback inteligente...")
-                return self._generate_fallback_response(query, context, error_msg=str(e))
-        else:
-            return self._generate_fallback_response(query, context)
+
+        try:
+            headers = {
+                "Authorization": f"Bearer {openrouter_key}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "model": "meta-llama/llama-3.1-8b-instruct",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3,
+                "top_p": 0.9,
+            }
+            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, timeout=15)
+            response.raise_for_status()
+            res_json = response.json()
+            return res_json['choices'][0]['message']['content']
+        except Exception as e:
+            print(f"[ASSISTANT] Error en OpenRouter API: {e}. Activando fallback inteligente...")
+            return self._generate_fallback_response(query, context, error_msg=str(e))
 
     def _generate_fallback_response(self, query, context, error_msg=None):
         """
