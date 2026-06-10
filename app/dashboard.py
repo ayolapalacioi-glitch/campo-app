@@ -974,6 +974,7 @@ with tab_planning:
             p_temp = default_temp
             p_rain = default_rain
             
+            zona_text = f"{p_mun}" if p_mun != "Todos" else f"el departamento de {p_dept}" if p_dept != "Todos" else "Colombia (Mapeo Nacional)"
             bg_color = "#182F1C" if st.session_state.dark_mode else "#F8FAFC"
             border_color = "rgba(129, 199, 132, 0.2)" if st.session_state.dark_mode else "#E2E8F0"
             text_color = "#E8F5E9" if st.session_state.dark_mode else "#334155"
