@@ -186,7 +186,7 @@ class CampoAssistant:
         openrouter_key = "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"
         
         prompt = f"""
-Eres Antigravity, un asistente de Inteligencia Artificial para el campo colombiano que ayuda a los pequeños y medianos campesinos.
+Eres AgroIA, un asistente de Inteligencia Artificial para el campo colombiano que ayuda a los pequeños y medianos campesinos.
 Habla en un lenguaje amable, claro, sencillo, muy respetuoso ("Sumercé", "Don", "Doña") y con terminología rural colombiana, pero manteniendo el rigor científico.
 
 El usuario te hace la siguiente pregunta: "{query}"
@@ -228,7 +228,7 @@ Instrucciones:
         Genera una respuesta inteligente estructurada basada en los datos encontrados.
         Se activa cuando no hay API Key de Gemini o falla la llamada.
         """
-        intro = """¡Hola, mi querido productor! Soy **Antigravity**, su copiloto analítico del campo. 
+        intro = """¡Hola, mi querido productor! Soy **AgroIA**, su copiloto analítico del campo. 
 
 Como no tengo conexión activa a internet o no se ha configurado la clave de la API de Gemini, le responderé directamente usando las bases de datos locales del sistema. Aquí tiene un reporte detallado según lo que me preguntó:
 
@@ -252,7 +252,7 @@ Como no tengo conexión activa a internet o no se ha configurado la clave de la 
         for sec in sections:
             response_body += sec + "\n\n"
 
-        response_body += """**Consejo práctico de Antigravity:**
+        response_body += """**Consejo práctico de AgroIA:**
 - Si va a sembrar, asegúrese de que el pH de su suelo sea adecuado.
 - Monitoree los precios de centrales de abasto (SIPSA) semanales en el dashboard para vender en el mejor momento.
 - Para créditos, acérquese al Banco Agrario y solicite las líneas especiales de tasa subsidiada de FINAGRO para Pequeños Productores.

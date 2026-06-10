@@ -7,7 +7,7 @@ El proyecto **C.A.M.P.O** es una solución digital de analítica avanzada e inte
 
 ## 🎯 1. Comprensión del Negocio y los Datos (Business & Data Understanding)
 Este proyecto da solución directa al Reto 4 (Agricultura y Desarrollo Rural): *"Implementar modelos de IA para predecir rendimientos agrícolas y riesgos climáticos"*.
-El modelo "Antigravity" cruza múltiples dimensiones de datos para garantizar una visión técnica y socioeconómica del campo colombiano:
+El modelo "AgroIA" cruza múltiples dimensiones de datos para garantizar una visión técnica y socioeconómica del campo colombiano:
 *   **UPRA (Suelos):** Unidades Físicas Homogéneas y mapas de aptitud de suelos (`fy2r-gwsd`).
 *   **IDEAM (Clima):** Registros históricos diarios e integración de clima de estaciones automáticas en tiempo real (`57sv-p2fu`).
 *   **ICA (Ganadería):** Población bovina y porcina por municipio y coberturas de vacunación contra fiebre aftosa (`uejq-ganad`).

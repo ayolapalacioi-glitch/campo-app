@@ -16,7 +16,7 @@ except ImportError:
 
 # 1. INICIALIZACIÓN DE ENTORNO BIG DATA (PySpark para datos del IDEAM)
 if HAS_PYSPARK:
-    spark = SparkSession.builder.appName("Antigravity_Agro_AI").getOrCreate()
+    spark = SparkSession.builder.appName("AgroIA").getOrCreate()
 else:
     spark = None
 

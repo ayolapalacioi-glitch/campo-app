@@ -1907,11 +1907,8 @@ with tab_ia:
             for est in voting_model.estimators_:
                 if hasattr(est, 'feature_importances_'):
                     importances_list.append(est.feature_importances_)
-            if importances_list:
-                importances = np.mean(importances_list, axis=0)
-            else:
-                importances = np.ones(32) / 32
-            feature_names = [
+            
+            feature_names_base = [
                 "Longitud de Título", "Palabras de Título", "Título tiene Año", "Título tiene Depto",
                 "Longitud de Descripción", "Palabras de Descripción", "Longitud de Justificación",
                 "Palabras Clave Agro", "Palabras Clave Baja Calidad", "Filas (Original)", "Filas (Log)",
@@ -1922,6 +1919,27 @@ with tab_ia:
                 "Cobertura Regional", "Cobertura Local", "Sector Agropecuario", "Orden Nacional",
                 "Orden Territorial"
             ]
+            feature_names = list(feature_names_base)
+            
+            tfidf_title = pipeline.get('tfidf_title')
+            tfidf_desc = pipeline.get('tfidf_desc')
+            tfidf_just = pipeline.get('tfidf_just')
+            
+            for prefix, tfidf in [("Título: ", tfidf_title), ("Desc: ", tfidf_desc), ("Justif: ", tfidf_just)]:
+                if tfidf is not None:
+                    try:
+                        if hasattr(tfidf, "get_feature_names_out"):
+                            names = list(tfidf.get_feature_names_out())
+                        else:
+                            names = list(tfidf.get_feature_names())
+                    except Exception:
+                        names = [f"Feature {i}" for i in range(getattr(tfidf, 'max_features', 50))]
+                    feature_names.extend([f"{prefix}{n}" for n in names])
+
+            if importances_list:
+                importances = np.mean(importances_list, axis=0)
+            else:
+                importances = np.ones(len(feature_names)) / len(feature_names)
         else:
             try:
                 importances = pipeline.named_steps['classifier'].feature_importances_
@@ -1932,6 +1950,12 @@ with tab_ia:
             except:
                 importances = np.ones(7) / 7
                 feature_names = ["Cobertura", "Sector", "Orden", "Filas", "Columnas", "Relevancia", "Calidad"]
+        
+        # Asegurar que tengan el mismo tamaño para evitar "ValueError: All arrays must be of the same length"
+        if len(feature_names) != len(importances):
+            min_len = min(len(feature_names), len(importances))
+            feature_names = list(feature_names)[:min_len]
+            importances = importances[:min_len]
         
         df_imp = pd.DataFrame({
             "Característica": feature_names,
@@ -1979,7 +2003,7 @@ with tab_chat:
     # Inicializar historial de chat
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = [
-            {"role": "assistant", "content": "¡Hola, mi estimado productor! Qué alegría tenerlo por acá. Soy **Antigravity**, su asesor de confianza. Pregúnteme lo que quiera sobre su cultivo, su tierra o el ganado, y con gusto le ayudo con los datos del gobierno colombiano."}
+            {"role": "assistant", "content": "¡Hola, mi estimado productor! Qué alegría tenerlo por acá. Soy **AgroIA**, su asesor de confianza. Pregúnteme lo que quiera sobre su cultivo, su tierra o el ganado, y con gusto le ayudo con los datos del gobierno colombiano."}
         ]
         
     # Mostrar mensajes anteriores
