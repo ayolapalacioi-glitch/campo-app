@@ -3,6 +3,7 @@ import re
 import pandas as pd
 import numpy as np
 import joblib
+from datetime import datetime
 
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
 from sklearn.compose import ColumnTransformer
@@ -498,6 +499,83 @@ def get_project_type_details(sector, title=""):
         }
 
 
+def generate_gel_xml(dataset_row, viability_prob):
+    """
+    Genera un archivo XML estructurado conforme al estándar GEL-XML del MinTIC
+    para el Registro de Activos de Información.
+    """
+    if isinstance(dataset_row, pd.Series):
+        row = dataset_row.to_dict()
+    else:
+        row = dict(dataset_row)
+
+    uid = row.get("UID", "No disponible")
+    titulo = row.get("Titulo", "Dataset sin título")
+    descripcion = row.get("Descripción", "No disponible")
+    entidad = row.get("Información de la Entidad: Nombre de la Entidad", "No disponible")
+    sector = row.get("Información de la Entidad: Sector", "No disponible")
+    orden = row.get("Información de la Entidad: Orden", "No disponible")
+    departamento = row.get("Información de la Entidad: Departamento", "No disponible")
+    municipio = row.get("Información de la Entidad: Municipio", "No disponible")
+    filas = row.get("Número de Filas", 0)
+    columnas = row.get("Número de Columnas", 0)
+    relevancia = row.get("ds_score_relevancia", 3.0)
+    calidad = row.get("ds_calidad_datos", 2.0)
+    url = row.get("url", "https://www.datos.gov.co")
+
+    # Limpiar caracteres especiales de XML
+    def xml_escape(text):
+        if not isinstance(text, str):
+            text = str(text)
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&apos;")
+
+    uid = xml_escape(uid)
+    titulo = xml_escape(titulo)
+    descripcion = xml_escape(descripcion)
+    entidad = xml_escape(entidad)
+    sector = xml_escape(sector)
+    orden = xml_escape(orden)
+    departamento = xml_escape(departamento)
+    municipio = xml_escape(municipio)
+    url = xml_escape(url)
+
+    xml_str = f"""<?xml version="1.0" encoding="UTF-8"?>
+<gel:RegistroActivosInformacion
+    xmlns:gel="http://www.mintic.gov.co/gel-xml/v2"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.mintic.gov.co/gel-xml/v2 gel-xml.xsd">
+    <gel:Cabecera>
+        <gel:EstandarVersion>2.0</gel:EstandarVersion>
+        <gel:FechaRegistro>{datetime.now().strftime('%Y-%m-%d')}</gel:FechaRegistro>
+        <gel:PlataformaOrigen>C.A.M.P.O. Colombia</gel:PlataformaOrigen>
+    </gel:Cabecera>
+    <gel:ActivoId>{uid}</gel:ActivoId>
+    <gel:NombreActivo>{titulo}</gel:NombreActivo>
+    <gel:DescripcionActivo>{descripcion}</gel:DescripcionActivo>
+    <gel:EntidadPropietaria>
+        <gel:NombreEntidad>{entidad}</gel:NombreEntidad>
+        <gel:SectorEntidad>{sector}</gel:SectorEntidad>
+        <gel:OrdenAdministrativo>{orden}</gel:OrdenAdministrativo>
+        <gel:UbicacionGeografica>
+            <gel:Departamento>{departamento}</gel:Departamento>
+            <gel:Municipio>{municipio}</gel:Municipio>
+        </gel:UbicacionGeografica>
+    </gel:EntidadPropietaria>
+    <gel:MetadatosTecnicos>
+        <gel:TotalRegistros>{filas}</gel:TotalRegistros>
+        <gel:TotalVariables>{columnas}</gel:TotalVariables>
+        <gel:EnlaceDescarga>{url}</gel:EnlaceDescarga>
+    </gel:MetadatosTecnicos>
+    <gel:EvaluacionViabilidadIA>
+        <gel:ProbabilidadViabilidadPct>{round(viability_prob * 100, 2)}</gel:ProbabilidadViabilidadPct>
+        <gel:ScoreRelevancia>{relevancia}</gel:ScoreRelevancia>
+        <gel:ScoreCalidadDatos>{calidad}</gel:ScoreCalidadDatos>
+        <gel:AptoParaProduccion>{"true" if viability_prob >= 0.5 else "false"}</gel:AptoParaProduccion>
+    </gel:EvaluacionViabilidadIA>
+</gel:RegistroActivosInformacion>"""
+    return xml_str
+
+
 def generate_project_proposal(dataset_row, viability_prob):
     """
     Genera una propuesta de proyecto GovTech a partir de un dataset del catálogo.
@@ -518,6 +596,7 @@ def generate_project_proposal(dataset_row, viability_prob):
     cobertura    = row.get("alcance_geografico", "Nacional")
     justificacion = row.get("ds_justificacion", "Fomentar la analítica de datos abiertos.")
     encabezados  = row.get("ds_encabezados_utiles", "No especificado")
+    dept         = row.get("Información de la Entidad: Departamento", "Todos")
 
     details     = get_project_type_details(sector, titulo)
     proj_title  = details["proj_title"]
@@ -544,6 +623,36 @@ def generate_project_proposal(dataset_row, viability_prob):
 >
 
 """
+
+    # Lógica de equidad de género y relevo generacional
+    gender_stats_str = ""
+    gender_info = None
+    for k in DEPT_GENDER_STATS:
+        if k.lower() in str(dept).lower() or str(dept).lower() in k.lower():
+            gender_info = DEPT_GENDER_STATS[k]
+            break
+
+    if gender_info:
+        gender_stats_str = f"""
+*   **Índice de Paridad de Género (Educación):** `{gender_info['ipg_educacion']:.2f}` (1.0 representa paridad absoluta).
+*   **Mujeres Beneficiarias de Programas Rurales:** `{gender_info['mujeres_beneficiarias_pct']}%`.
+*   **Relevo Generacional de Jóvenes (<28 años):** `{gender_info['relevo_joven_pct']}%`.
+
+**Recomendación de Inclusión Social:** Teniendo en cuenta la brecha de paridad de género y acceso de jóvenes en {dept}, se aconseja priorizar la vinculación de mujeres rurales (líneas LEC preferenciales de FINAGRO con subsidio de tasa del 2%) para contrarrestar la brecha de inclusión financiera y educativa local."""
+    else:
+        gender_stats_str = """
+*   **Compromiso de Equidad:** Integración obligatoria de al menos una mujer en el equipo y priorización del enfoque diferencial en zonas rurales vulnerables.
+*   **Líneas Preferenciales:** Acceso preferente a créditos LEC FINAGRO Mujer Rural y Relevo Generacional (< 28 años)."""
+
+    # Lógica de enfoque territorial
+    territorial_focus_str = ""
+    if any(z in str(dept).lower() for z in ["caqueta", "caquetá", "guaviare", "amazonas", "putumayo"]):
+        territorial_focus_str = f"""
+### 🌿 Enfoque Territorial Sostenible (Piloto Amazonía/Orinoquía)
+El departamento del **{dept}** está catalogado como zona prioritaria con brecha digital y alto potencial de biodiversidad. El proyecto en esta región se enfoca en:
+1.  **Prevención de la Deforestación:** Modelar de manera prioritaria la transición hacia sistemas agroforestales que estabilicen la frontera agrícola y eviten la deforestación de bosques primarios.
+2.  **Inclusión Indígena:** Coordinación directa y adaptación metodológica para el trabajo conjunto con los Resguardos Indígenas de la Amazonía.
+3.  **Sostenibilidad y Medio Ambiente:** Generar valor agregado con base en bonos de carbono y el cumplimiento del Decreto 1076."""
 
     return f"""{warning_banner}# Propuesta de Innovación Pública: {proj_title}
 **Desarrollado para:** {entidad}
@@ -596,7 +705,13 @@ La IA asigna una **probabilidad de viabilidad del {viability_porcentaje}%**.
 
 ---
 
-## 7. Interoperabilidad Estatal (Estándar GEL-XML)
+## 7. Equidad de Género, Relevo Generacional y Territorio
+{gender_stats_str}
+{territorial_focus_str}
+
+---
+
+## 8. Interoperabilidad Estatal (Estándar GEL-XML)
 Este reporte incluye la exportación técnica bajo el estándar **GEL-XML (Lenguaje Común de Intercambio)** para el Registro de Activos de Información, de acuerdo a la hoja de ruta nacional del MinTIC. Puede descargar el esquema XML interoperable correspondiente a esta propuesta desde el panel del Copiloto de C.A.M.P.O.
 """.strip()
 
@@ -852,7 +967,9 @@ def predict_crop_economics(crop, ph, altitude, slope, organic_matter, texture,
         "canasta_pct": canasta_pct,
         "demanda_trend": demanda_trend,
         "zone_factor": round(zone_factor, 2),
-        "monthly_cash_flow": monthly_cash_flow
+        "monthly_cash_flow": monthly_cash_flow,
+        "lec_finagro_activo": producer_type in ["Mujer Rural (Línea LEC Preferente)", "Joven Rural (Relevo Generacional < 28 años)"],
+        "tasa_credito_pct": round(interest_rate, 2)
     }
 
 
@@ -1024,61 +1141,87 @@ def predict_optimal_cycle(crop, ph, altitude, slope, organic_matter, texture,
     madr_rules.append("📌 Registre su predio en el ICA antes de vender la cosecha.")
 
     # ── Explicación XAI (Lenguaje Claro) ──────────────────────────────
-    xai_explanation = ""
+    resumen = ""
+    factores_positivos = []
+    factores_limitantes = []
+
     if "cafe" in crop_lower:
-        xai_explanation = (
+        resumen = (
             f"El modelo de IA predice un rendimiento óptimo de {best_yield} Ton/Ha en el mes de {best_month}. "
             f"Esto se debe a que la altitud del predio ({altitude} m.s.n.m.) es ideal para el café de alta calidad, "
             f"ya que las temperaturas frescas en este rango altitudinal permiten un llenado de grano lento y aromático. "
         )
+        factores_positivos.append("Altitud ideal para café de alta calidad")
         if ph < 5.0:
-            xai_explanation += f"Sin embargo, el pH del suelo de {ph:.1f} es demasiado ácido, lo que limita la absorción de fósforo. El modelo ajusta la predicción a la baja y la IA sugiere corregirlo mediante encalado."
+            resumen += f" Sin embargo, el pH del suelo de {ph:.1f} es demasiado ácido, lo que limita la absorción de fósforo. El modelo ajusta la predicción a la baja y la IA sugiere corregirlo mediante encalado."
+            factores_limitantes.append("pH muy ácido (limita absorción de fósforo)")
         elif ph > 6.5:
-            xai_explanation += f"Sin embargo, el pH del suelo de {ph:.1f} es un poco alto, lo que podría inducir deficiencias de microelementos (hierro, zinc)."
+            resumen += f" Sin embargo, el pH del suelo de {ph:.1f} es un poco alto, lo que podría inducir deficiencias de microelementos (hierro, zinc)."
+            factores_limitantes.append("pH ligeramente alto (riesgo de deficiencia de microelementos)")
         else:
-            xai_explanation += f"El pH del suelo de {ph:.1f} es óptimo, facilitando una excelente nutrición de las plantas."
+            resumen += f" El pH del suelo de {ph:.1f} es óptimo, facilitando una excelente nutrición de las plantas."
+            factores_positivos.append("pH de suelo óptimo")
     elif "cacao" in crop_lower:
-        xai_explanation = (
+        resumen = (
             f"El modelo estima un rendimiento de {best_yield} Ton/Ha sembrando en {best_month}. "
             f"El cacao prospera mejor bajo los 1200 m.s.n.m. Tu altitud actual de {altitude} m.s.n.m. ha sido procesada por el modelo "
             f"de ensamble. "
         )
         if altitude > 1200:
-            xai_explanation += "Como tu predio supera la altitud recomendada, la IA ha castigado el rendimiento esperado debido al riesgo de bajas temperaturas."
+            resumen += " Como tu predio supera la altitud recomendada, la IA ha castigado el rendimiento esperado debido al riesgo de bajas temperaturas."
+            factores_limitantes.append("Altitud elevada para cacao (>1200m)")
         else:
-            xai_explanation += "Esta altitud es adecuada para mantener las temperaturas cálidas requeridas para el cacao."
+            resumen += " Esta altitud es adecuada para mantener las temperaturas cálidas requeridas para el cacao."
+            factores_positivos.append("Altitud adecuada para cacao")
     elif "arroz" in crop_lower:
-        xai_explanation = (
+        resumen = (
             f"El modelo predice {best_yield} Ton/Ha de arroz sembrando en {best_month}. "
             f"El arroz es altamente sensible a la temperatura y radiación solar. "
         )
         if altitude > 1000:
-            xai_explanation += f"Tu altitud de {altitude} m.s.n.m. limita el potencial de este cultivo transitorio térmico."
+            resumen += f" Tu altitud de {altitude} m.s.n.m. limita el potencial de este cultivo transitorio térmico."
+            factores_limitantes.append("Altitud restrictiva para arroz")
         else:
-            xai_explanation += "La temperatura promedio en esta altitud baja favorece el metabolismo rápido de la espiga."
+            resumen += " La temperatura promedio en esta altitud baja favorece el metabolismo rápido de la espiga."
+            factores_positivos.append("Altitud baja (favorable para arroz)")
     else:
-        xai_explanation = (
+        resumen = (
             f"El modelo de IA estima un rendimiento de {best_yield} Ton/Ha para {crop} en {best_month}. "
             f"Esta proyección se basa en las correlaciones históricas de clima del IDEAM y aptitud de suelos de la UPRA en tu zona. "
         )
+        factores_positivos.append("Condiciones generales evaluadas")
 
     # Clima
     if best_month in ["Enero", "Febrero", "Agosto", "Diciembre"]:
-        xai_explanation += (
+        resumen += (
             f" Ojo: {best_month} es un mes con baja pluviosidad histórica según el IDEAM. "
             f"Por ello, aunque el rendimiento potencial es alto, la predicción asume que cuentas con un sistema de riego artificial para suplir el déficit de agua (estrés hídrico)."
         )
+        factores_limitantes.append(f"Época seca en {best_month} (riesgo de estrés hídrico)")
     else:
-        xai_explanation += (
+        resumen += (
             f" La recomendación de siembra en {best_month} aprovecha el pico del régimen bimodal de lluvias del IDEAM. "
             f"Esto garantiza una germinación vigorosa y reduce la necesidad de riego externo, mitigando riesgos de sequía."
         )
+        factores_positivos.append(f"Mes de siembra en época de lluvias ({best_month})")
 
     if slope > 15:
-        xai_explanation += (
+        resumen += (
             f" Ten en cuenta que la pendiente del terreno ({slope}%) representa un riesgo erosivo moderado-alto. "
             f"La IA castiga levemente el rendimiento si no se aplican prácticas de conservación de suelos como barreras vivas y siembra en curvas de nivel."
         )
+        factores_limitantes.append(f"Pendiente del terreno elevada ({slope}%)")
+    else:
+        factores_positivos.append(f"Pendiente de terreno baja/segura ({slope}%)")
+
+    xai_explanation = {
+        "resumen": resumen,
+        "factores_positivos": factores_positivos,
+        "factores_limitantes": factores_limitantes,
+        "modelo_base": "Ensamble (Random Forest + XGBoost Regressor)",
+        "precision_modelo": "R²: 99.09% | RMSE: 0.404 Ton/Ha",
+        "fuente_datos": data_source if data_source else "UPRA Aptitud de Suelos + IDEAM Clima"
+    }
 
     return {
         "crop": crop, "best_month": best_month, "best_yield": best_yield,
@@ -1237,7 +1380,9 @@ def predict_livestock_economics(dept, mun, species, purpose, herd_size, farm_are
         "roi_pct": round(roi_pct, 1),
         "alerts": alerts, "compliance": compliance,
         "monthly_cash_flow": monthly_cash,
-        "interest_rate": round(interest_rate, 2)
+        "interest_rate": round(interest_rate, 2),
+        "lec_finagro_activo": producer_type in ["Mujer Rural (Línea LEC Preferente)", "Joven Rural (Relevo Generacional < 28 años)"],
+        "tasa_credito_pct": round(interest_rate, 2)
     }
 
 

@@ -24,7 +24,7 @@ try:
 except Exception as e:
     pass
 
-from src.models import train_viability_model, predict_viability, generate_project_proposal, get_project_type_details, predict_optimal_cycle, predict_livestock_economics, predict_crop_economics, compare_all_crops, DEPT_GENDER_STATS
+from src.models import train_viability_model, predict_viability, generate_project_proposal, get_project_type_details, predict_optimal_cycle, predict_livestock_economics, predict_crop_economics, compare_all_crops, DEPT_GENDER_STATS, generate_gel_xml
 
 # Importar y recargar el asistente RAG
 import app.assistant
@@ -363,6 +363,18 @@ st.sidebar.markdown(f"""
         <p style="font-size:12px; color:{sidebar_header_text}; margin:0;">📍 Elige tu región para ver los datos de tu zona:</p>
     </div>
 """, unsafe_allow_html=True)
+
+# Recordatorio de Registro de Usos Obligatorio (concurso)
+st.sidebar.markdown("""
+    <div style="padding:12px; background:rgba(239,68,68,0.08); border-radius:12px; margin-bottom:16px; border: 1px solid rgba(239,68,68,0.25); border-left:4px solid #ef4444;">
+        <b style="color:#ef4444; font-size:12px;">🚨 RECORDATORIO OBLIGATORIO:</b><br>
+        <p style="font-size:11px; margin:4px 0 0 0; line-height:1.4; color:#ef4444;">
+            Es <b>requisito obligatorio</b> registrar el enlace de este repositorio en la sección de usos de 
+            <a href="https://www.datos.gov.co" target="_blank" style="color:#ef4444; font-weight:700; text-decoration:underline;">datos.gov.co</a> para la validación del jurado.
+        </p>
+    </div>
+""", unsafe_allow_html=True)
+
 
 # Departamentos disponibles en el catálogo
 depts_disponibles = sorted([str(x) for x in df_cat["Información de la Entidad: Departamento"].dropna().unique() if str(x) != "No disponible" and str(x) != "Nacional"])
@@ -1235,6 +1247,36 @@ with tab_planning:
                 </span>
             </div>
             """, unsafe_allow_html=True)
+
+        # Lógica de barreras y financiamiento sugerido (Equidad de Género y Relevo Generacional)
+        if p_dept != "Todos" and p_producer_type != "General":
+            dept_key = p_dept
+            gender_info = None
+            for k in DEPT_GENDER_STATS:
+                if k.lower() in dept_key.lower() or dept_key.lower() in k.lower():
+                    gender_info = DEPT_GENDER_STATS[k]
+                    break
+            
+            if gender_info:
+                _barr_bg = "rgba(230, 240, 255, 0.1)" if st.session_state.dark_mode else "rgba(240, 246, 255, 0.8)"
+                _barr_bdr = "#3b82f6"
+                _barr_tx = "#81c784" if st.session_state.dark_mode else "#1e3a8a"
+                
+                if p_producer_type == "Mujer Rural (Línea LEC Preferente)":
+                    barrier_desc = f"Históricamente, las mujeres rurales en el departamento de **{p_dept}** representan solo el **{gender_info['mujeres_beneficiarias_pct']}%** de los beneficiarios de programas de desarrollo rural, enfrentando barreras críticas de exclusión financiera y menor acceso histórico a créditos formales."
+                    suggested_line = "**Línea Especial de Crédito (LEC) FINAGRO Mujer Rural:** Ofrece tasas de interés subsidiadas (hasta 2% E.A. por debajo de la tasa ordinaria) y flexibilización de garantías (Fondo Agropecuario de Garantías - FAG hasta el 80%)."
+                else:
+                    barrier_desc = f"En el departamento de **{p_dept}**, la participación de jóvenes productores en actividades rurales y agropecuarias es de solo el **{gender_info['relevo_joven_pct']}%**, reflejando la urgente necesidad de promover el relevo generacional y contrarrestar la migración juvenil a zonas urbanas."
+                    suggested_line = "**Línea Especial de Crédito (LEC) FINAGRO Joven Rural / Relevo Generacional:** Financiación preferencial con tasa subsidiada (reducción del 2% E.A.) para productores menores de 28 años y apoyo en la estructuración de proyectos productivos viables."
+                
+                st.markdown(f"""
+                <div style="background:{_barr_bg}; border-left:5px solid {_barr_bdr}; border-radius:12px; padding:16px 20px; margin:12px 0; border: 1px solid rgba(59,130,246,0.2);">
+                    <b style="color:{_barr_tx}; font-size:14px;">♀️ Diagnóstico de Equidad y Barreras — {p_dept}</b><br>
+                    <p style="font-size:13px; margin:6px 0 10px 0; color:{'#E2EED5' if st.session_state.dark_mode else '#334155'};">{barrier_desc}</p>
+                    <b style="color:{_barr_tx}; font-size:13px;">💡 Línea de Financiamiento Sugerida:</b>
+                    <p style="font-size:13px; margin:4px 0 0 0; color:{'#E2EED5' if st.session_state.dark_mode else '#334155'};">{suggested_line}</p>
+                </div>
+                """, unsafe_allow_html=True)
         
         # Tarjetas de KPI
         col_eco1, col_eco2, col_eco3, col_eco4 = st.columns(4)
@@ -1407,6 +1449,68 @@ with tab_planning:
                                        help="Las mujeres rurales y jóvenes menores de 28 años acceden a la Línea Especial de Crédito de FINAGRO con tasa preferencial.")
         g_res = predict_livestock_economics(g_dept, g_mun, g_species, g_purpose, g_herd, g_area, producer_type=g_producer_type)
         
+        # ── Banner Territorial Ganadero: Sostenibilidad Caquetá / Guaviare (Estrategia 3) ─────
+        _g_dept_low = g_dept.lower() if g_dept != "Todos" else ""
+        if any(z in _g_dept_low for z in ["caqueta", "caquetá", "guaviare", "putumayo"]):
+            _gt_bg = "linear-gradient(135deg,#1C0F0A,#2E160D)" if st.session_state.dark_mode else "linear-gradient(135deg,#FFF3E0,#FFE0B2)"
+            _gt_bd = "#FFB74D" if st.session_state.dark_mode else "#E65100"
+            _gt_tx = "#FFE0B2" if st.session_state.dark_mode else "#E65100"
+            st.markdown(f"""
+            <div style="background:{_gt_bg}; border-left:6px solid {_gt_bd}; border-radius:14px; padding:16px 22px; margin:10px 0;">
+                <b style="color:{_gt_tx}; font-size:15px;">🌳 Piloto Ganadero Sostenible: {g_dept} — Piedemonte Amazónico</b><br>
+                <span style="color:{_gt_tx}; font-size:13px; color:{'#E2EED5' if st.session_state.dark_mode else '#334155'};">
+                    La ganadería extensiva en esta región es un factor crítico de <b>deforestación</b>. Para mitigar este impacto y cumplir con los <b>acuerdos de deforestación cero</b>, C.A.M.P.O. aconseja la implementación de <b>sistemas silvopastoriles intensivos</b> y la protección de bosques riparios, facilitando el acceso a incentivos de conservación ambiental y créditos verdes.
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Mostrar LEC FINAGRO si aplica beneficio de tasa
+        if g_res.get("lec_finagro_activo"):
+            _g_lec_bg  = "linear-gradient(135deg,#0F2027,#203A43,#2C5364)" if st.session_state.dark_mode else "linear-gradient(135deg,#E0F7FA,#B2EBF2)"
+            _g_lec_brd = "#4DD0E1" if st.session_state.dark_mode else "#00ACC1"
+            _g_lec_tx  = "#E0F7FA" if st.session_state.dark_mode else "#006064"
+            st.markdown(f"""
+            <div style="background:{_g_lec_bg}; border-left:6px solid {_g_lec_brd}; border-radius:12px; padding:14px 20px; margin:10px 0;">
+                <b style="color:{_g_lec_tx}; font-size:14px;">🏦 ¡Beneficio Activado! Línea Especial de Crédito (LEC) FINAGRO</b><br>
+                <span style="color:{_g_lec_tx}; font-size:13px;">
+                    Como <b>{g_producer_type}</b>, tienes derecho a una <b>tasa de interés preferencial 2% menor</b> a la del mercado comercial.
+                    Esto reduce el costo de financiamiento de tu proyecto ganadero.
+                    La tasa aplicada en esta simulación: <b>{g_res.get('tasa_credito_pct', 'N/A')}% E.A.</b>
+                    — <em>Fuente: FINAGRO, Circular Reglamentaria 2024.</em>
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Lógica de barreras y financiamiento sugerido en ganadería
+        if g_dept != "Todos" and g_producer_type != "General":
+            dept_key = g_dept
+            gender_info = None
+            for k in DEPT_GENDER_STATS:
+                if k.lower() in dept_key.lower() or dept_key.lower() in k.lower():
+                    gender_info = DEPT_GENDER_STATS[k]
+                    break
+            
+            if gender_info:
+                _barr_bg = "rgba(230, 240, 255, 0.1)" if st.session_state.dark_mode else "rgba(240, 246, 255, 0.8)"
+                _barr_bdr = "#3b82f6"
+                _barr_tx = "#81c784" if st.session_state.dark_mode else "#1e3a8a"
+                
+                if g_producer_type == "Mujer Rural (Línea LEC Preferente)":
+                    barrier_desc = f"Históricamente, las mujeres rurales en el departamento de **{g_dept}** representan solo el **{gender_info['mujeres_beneficiarias_pct']}%** de los beneficiarios de programas de desarrollo rural, enfrentando barreras críticas de exclusión financiera y menor acceso histórico a créditos formales."
+                    suggested_line = "**Línea Especial de Crédito (LEC) FINAGRO Mujer Rural:** Ofrece tasas de interés subsidiadas (hasta 2% E.A. por debajo de la tasa ordinaria) y flexibilización de garantías (Fondo Agropecuario de Garantías - FAG hasta el 80%)."
+                else:
+                    barrier_desc = f"En el departamento de **{g_dept}**, la participación de jóvenes productores en actividades rurales y agropecuarias es de solo el **{gender_info['relevo_joven_pct']}%**, reflejando la urgente necesidad de promover el relevo generacional y contrarrestar la migración juvenil a zonas urbanas."
+                    suggested_line = "**Línea Especial de Crédito (LEC) FINAGRO Joven Rural / Relevo Generacional:** Financiación preferencial con tasa subsidiada (reducción del 2% E.A.) para productores menores de 28 años y apoyo en la estructuración de proyectos productivos viables."
+                
+                st.markdown(f"""
+                <div style="background:{_barr_bg}; border-left:5px solid {_barr_bdr}; border-radius:12px; padding:16px 20px; margin:12px 0; border: 1px solid rgba(59,130,246,0.2);">
+                    <b style="color:{_barr_tx}; font-size:14px;">♀️ Diagnóstico de Equidad y Barreras — {g_dept}</b><br>
+                    <p style="font-size:13px; margin:6px 0 10px 0; color:{'#E2EED5' if st.session_state.dark_mode else '#334155'};">{barrier_desc}</p>
+                    <b style="color:{_barr_tx}; font-size:13px;">💡 Línea de Financiamiento Sugerida:</b>
+                    <p style="font-size:13px; margin:4px 0 0 0; color:{'#E2EED5' if st.session_state.dark_mode else '#334155'};">{suggested_line}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
         # 1. Métricas Financieras
         st.markdown("---")
         st.markdown("### 💰 ¿Cuánto Gana con su Finca?")
@@ -1909,14 +2013,25 @@ with tab_copiloto:
                 proposal_text = generate_project_proposal(selected_row, viability_prob)
                 st.markdown(proposal_text)
                 
-                # Botón para descargar el documento markdown generado
-                st.download_button(
-                    label="📥 Descargar Propuesta en Formato Markdown (.md)",
-                    data=proposal_text.encode('utf-8'),
-                    file_name=f"propuesta_proyecto_{selected_row.get('UID', 'Socrata')}.md",
-                    mime="text/markdown",
-                    use_container_width=True
-                )
+                # Descargas en 2 columnas (Markdown y GEL-XML)
+                col_dl_md, col_dl_xml = st.columns(2)
+                with col_dl_md:
+                    st.download_button(
+                        label="📥 Descargar Propuesta en Formato Markdown (.md)",
+                        data=proposal_text.encode('utf-8'),
+                        file_name=f"propuesta_proyecto_{selected_row.get('UID', 'Socrata')}.md",
+                        mime="text/markdown",
+                        use_container_width=True
+                    )
+                with col_dl_xml:
+                    xml_content = generate_gel_xml(selected_row, viability_prob)
+                    st.download_button(
+                        label="📥 Descargar Registro de Activos (Estándar GEL-XML)",
+                        data=xml_content.encode('utf-8'),
+                        file_name=f"registro_activo_{selected_row.get('UID', 'Socrata')}.xml",
+                        mime="application/xml",
+                        use_container_width=True
+                    )
 
 # ==================== PESTAÑA 6: EVALUADOR DE INFORMACIÓN ====================
 with tab_ia:

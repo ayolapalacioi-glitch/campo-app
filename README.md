@@ -14,6 +14,8 @@ El modelo "AgroIA" cruza múltiples dimensiones de datos para garantizar una vis
 *   **FINAGRO (Finanzas):** Montos y tasas de interés de créditos agropecuarios aprobados por cadena productiva (`gzrg-rewp`).
 *   **MinAgricultura (Precios):** Índice nacional de precios de insumos agrícolas y de centrales de abasto (`gwbi-fnzs` / SIPSA).
 *   **UPRA (Rendimientos):** Evaluaciones Agropecuarias Municipales EVA históricas (`uejq-wxrr`).
+*   **Equidad de Género e Inclusión:** Datos de índice de paridad de género en educación (IPG) y caracterización de mujeres y jóvenes beneficiarios de programas rurales de MinAgricultura.
+
 
 ---
 
@@ -43,9 +45,10 @@ Se evalúa también la **escalabilidad** y el **impacto socioeconómico**, prior
 ## 🚀 5. Despliegue (Deployment)
 La solución está empaquetada como un **tablero interactivo (Dashboard)** desarrollado en Python (Streamlit), el cual traduce las predicciones de la IA en recomendaciones visuales accesibles:
 *   **Mapa Interactivo (Folium):** Geolocalización del catálogo y datasets regionales de retos públicos.
-*   **Planificador Agrícola:** Recomendador reactivo de siembras con validaciones normativas del MADR (Decreto 1076).
-*   **Simulador Económico Ganadero:** Herramienta estratégica para proyectar carga animal (UPRA/CAR) y rentabilidad financiera de hatos bovinos/porcinos.
-*   **Copiloto GovTech:** Generador automático de propuestas formales de proyectos de datos.
+*   **Planificador Agrícola:** Recomendador reactivo de siembras con validaciones del MADR (Decreto 1076), explicaciones de IA explicable (XAI) en lenguaje claro y diagnóstico de barreras locales para mujeres/jóvenes.
+*   **Simulador Económico Ganadero:** Proyección de carga animal (UPRA/CAR), rentabilidad y financiamiento preferencial FINAGRO LEC, con alertas de conservación forestal para Caquetá/Guaviare.
+*   **Copiloto GovTech:** Generador automático de propuestas de proyectos, integrado con exportación técnica bajo el estándar **GEL-XML (Lenguaje Común de Intercambio)** del MinTIC para el Registro de Activos de Información.
+
 
 ---
 
@@ -113,3 +116,5 @@ Una vez ejecutado, la terminal mostrará las URLs de acceso. Abre en tu navegado
    * Cuenta con un **Fallback Inteligente** local que funciona inmediatamente usando bases de datos locales si no se configura clave de API.
    * Si desean probar el modo completo conversacional con dialecto colombiano ("Sumercé"), pueden configurar una API key en el archivo de configuración o a través de la interfaz.
 3. **Simulador Económico:** Pueden ajustar dinámicamente las hectáreas, tasas de interés y tipos de cultivo/ganado para ver las proyecciones financieras en pesos colombianos (COP).
+4. **🚨 Registro de Usos (Obligatorio para Concurso):** De acuerdo a los términos del concurso, es un requisito obligatorio registrar el enlace de este repositorio en la sección de usos de `datos.gov.co` para la evaluación del jurado.
+

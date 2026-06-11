@@ -111,6 +111,14 @@ class TestAgroPredictPipeline(unittest.TestCase):
         self.assertIn("madr_compliance", res)
         self.assertIn("madr_rules", res)
         self.assertEqual(len(res["yields"]), 12, "Debe simular exactamente 12 meses de siembra.")
+        
+        # Verificar formato XAI
+        self.assertIsInstance(res["xai_explanation"], dict)
+        self.assertIn("resumen", res["xai_explanation"])
+        self.assertIn("factores_positivos", res["xai_explanation"])
+        self.assertIn("factores_limitantes", res["xai_explanation"])
+        self.assertIn("modelo_base", res["xai_explanation"])
+        self.assertIn("precision_modelo", res["xai_explanation"])
 
     def test_livestock_economics_model(self):
         """Verifica que el modelo económico ganadero calcule la rentabilidad y alertas regulatorias correctamente."""
@@ -122,7 +130,8 @@ class TestAgroPredictPipeline(unittest.TestCase):
             species="Bovino",
             purpose="Leche",
             herd_size=30,
-            farm_area=40.0
+            farm_area=40.0,
+            producer_type="Mujer Rural (Línea LEC Preferente)"
         )
         
         self.assertIsInstance(res, dict)
@@ -134,10 +143,38 @@ class TestAgroPredictPipeline(unittest.TestCase):
         self.assertIn("margin_pct", res)
         self.assertIn("alerts", res)
         self.assertIn("compliance", res)
+        self.assertTrue(res["lec_finagro_activo"])
+        self.assertIn("tasa_credito_pct", res)
         
         # Debe calcular ingresos y utilidades reales mayores a cero con hato de 30 bovinos
         self.assertGreater(res["gross_revenue"], 0, "Los ingresos ganaderos proyectados deben ser reales.")
         self.assertIsInstance(res["alerts"], list)
+
+    def test_gel_xml_generation(self):
+        """Verifica que se genere un XML válido bajo el estándar GEL-XML del MinTIC."""
+        from src.models import generate_gel_xml
+        sample_row = {
+            "UID": "abc-123",
+            "Titulo": "Dataset de Prueba",
+            "Descripción": "Descripción larga del dataset.",
+            "Información de la Entidad: Nombre de la Entidad": "MinTIC",
+            "Información de la Entidad: Sector": "Tecnologías de la Información",
+            "Información de la Entidad: Orden": "Nacional",
+            "Información de la Entidad: Departamento": "Bogotá",
+            "Información de la Entidad: Municipio": "Bogotá D.C.",
+            "Número de Filas": 1000,
+            "Número de Columnas": 12,
+            "ds_score_relevancia": 4.5,
+            "ds_calidad_datos": 4.0,
+            "url": "https://www.datos.gov.co/abc-123"
+        }
+        xml_str = generate_gel_xml(sample_row, 0.95)
+        self.assertIsInstance(xml_str, str)
+        self.assertIn('<?xml version="1.0" encoding="UTF-8"?>', xml_str)
+        self.assertIn('<gel:RegistroActivosInformacion', xml_str)
+        self.assertIn('<gel:ActivoId>abc-123</gel:ActivoId>', xml_str)
+        self.assertIn('<gel:NombreActivo>Dataset de Prueba</gel:NombreActivo>', xml_str)
+
 
 if __name__ == "__main__":
     unittest.main()

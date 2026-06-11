@@ -171,6 +171,13 @@ class CampoAssistant:
                 context_parts.append(f"- Población porcina promedio: {int(porcino):,} cabezas.")
                 context_parts.append(f"- Cobertura de vacunación aftosa: {aftosa:.2f}% (Meta recomendada > 95%).")
 
+        # G. Enfoque Territorial Priorizado (Estrategia 3)
+        if any(z in query_lower for z in ["caqueta", "caquetá", "guaviare", "amazonía", "amazonia", "orinoquía", "orinoquia", "putumayo", "sustainability", "sostenible", "deforestacion", "deforestación"]):
+            context_parts.append("🌳 **Prioridad de Sostenibilidad y Frontera Agrícola (Piloto Piedemonte/Amazonía):**")
+            context_parts.append("- Esta zona tiene un alto índice de riesgo de deforestación por expansión agropecuaria no planificada.")
+            context_parts.append("- C.A.M.P.O. en esta región prioriza la estabilización de la frontera agrícola, protegiendo los Resguardos Indígenas y fomentando la agroforestería (sistemas de cacao y café bajo sombra) y sistemas silvopastoriles para ganadería sostenible.")
+            context_parts.append("- Se aplican regulaciones ambientales CAR (Decreto 1076) e incentivos del Gobierno Nacional (PDET) para la sustitución de economías no sostenibles y prevención de la tala de bosques primarios.")
+
         return "\n".join(context_parts)
 
     def answer_question(self, query, api_key=None):
