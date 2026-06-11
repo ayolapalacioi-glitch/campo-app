@@ -1,7 +1,10 @@
 # 🌾 Proyecto C.A.M.P.O: Predicción Inteligente de Cosechas y Riesgo Climático en Colombia
 **Concurso Datos al Ecosistema 2026: IA para Colombia - Nivel Avanzado**
 
+🌐 **URL de la Aplicación Desplegada (Producción):** [https://campo-app-4kb5uzvbg2dvgq82czxjun.streamlit.app/](https://campo-app-4kb5uzvbg2dvgq82czxjun.streamlit.app/)
+
 El proyecto **C.A.M.P.O** es una solución digital de analítica avanzada e inteligencia artificial predictiva diseñada para el sector agropecuario colombiano. La plataforma permite estimar los rendimientos de cultivos y evaluar la viabilidad económica y ambiental de proyectos agrarios y ganaderos, mitigando riesgos climáticos y garantizando el cumplimiento de las normativas vigentes (UPRA, MADR, ICA, CAR).
+
 
 ---
 

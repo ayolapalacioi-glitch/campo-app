@@ -305,6 +305,42 @@ else:
         </style>
     """, unsafe_allow_html=True)
 
+# Caching Helpers for Performance Optimization
+@st.cache_data
+def get_consolidated_data():
+    path = "data/processed/consolidated_data.csv"
+    if os.path.exists(path):
+        try:
+            return pd.read_csv(path)
+        except Exception as e:
+            print(f"[CACHE] Error reading consolidated data: {e}")
+            return pd.DataFrame()
+    return pd.DataFrame()
+
+@st.cache_data
+def get_selected_dataset(filepath):
+    if os.path.exists(filepath):
+        try:
+            return pd.read_csv(filepath)
+        except Exception as e:
+            print(f"[CACHE] Error reading dataset {filepath}: {e}")
+            return pd.DataFrame()
+    return pd.DataFrame()
+
+@st.cache_data
+def get_production_data(prod_path):
+    if os.path.exists(prod_path):
+        try:
+            return pd.read_csv(prod_path)
+        except Exception as e:
+            print(f"[CACHE] Error reading production data {prod_path}: {e}")
+            return pd.DataFrame()
+    return pd.DataFrame()
+
+@st.cache_resource
+def get_assistant():
+    return CampoAssistant()
+
 # 2. Inicialización de Datos y Modelos
 @st.cache_resource
 def setup_environment():
@@ -395,12 +431,7 @@ if selected_dept != "Todos":
         df_cat_filtered = df_cat_filtered[df_cat_filtered["Información de la Entidad: Municipio"] == selected_mun]
         
 # Filtrar datos consolidados agrícolas (si existen)
-df_agro = pd.DataFrame()
-if os.path.exists("data/processed/consolidated_data.csv"):
-    try:
-        df_agro = pd.read_csv("data/processed/consolidated_data.csv")
-    except:
-        pass
+df_agro = get_consolidated_data()
         
 df_agro_filtered = df_agro.copy()
 if not df_agro.empty and selected_dept != "Todos":
@@ -614,7 +645,7 @@ with tab_agro_data:
         filepath = os.path.join(raw_dir, file_name)
         
     if os.path.exists(filepath):
-        df_selected = pd.read_csv(filepath)
+        df_selected = get_selected_dataset(filepath)
     else:
         st.error(f"El archivo {file_name} no existe. Por favor ejecuta el pipeline de ingestión.")
         
@@ -777,9 +808,8 @@ with tab_agro_data:
             st.markdown("---")
             st.markdown("##### 🚜 Tabla 2 — Hectáreas por Sector Productivo (Cruce EVA + Producción Histórica)")
 
-            # Fuente: producción histórica (tiene hectareas_sembradas por cultivo y municipio)
             prod_path = os.path.join("data/raw", "produccion_historica.csv")
-            df_prod_raw = pd.read_csv(prod_path) if os.path.exists(prod_path) else pd.DataFrame()
+            df_prod_raw = get_production_data(prod_path)
 
             if not df_prod_raw.empty:
                 # Filtro geográfico
@@ -2208,7 +2238,7 @@ with tab_chat:
     """, unsafe_allow_html=True)
     
     # Inicializar el asistente
-    assistant = CampoAssistant()
+    assistant = get_assistant()
     
     # Inicializar historial de chat
     if "chat_history" not in st.session_state:
