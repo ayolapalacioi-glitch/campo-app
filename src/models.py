@@ -258,7 +258,7 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
             max_depth=5,
             learning_rate=0.1,
             random_state=42,
-            n_jobs=-1,
+            n_jobs=1,
             eval_metric='logloss'
         )
         has_xgb = True
@@ -272,7 +272,7 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
             max_depth=5,
             learning_rate=0.1,
             random_state=42,
-            n_jobs=-1,
+            n_jobs=1,
             verbose=-1
         )
         has_lgbm = True
@@ -286,14 +286,14 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
         n_estimators=300,
         max_depth=15,
         random_state=42,
-        n_jobs=-1
+        n_jobs=1
     )
 
     et = ExtraTreesClassifier(
         n_estimators=300,
         max_depth=15,
         random_state=42,
-        n_jobs=-1
+        n_jobs=1
     )
 
     estimators = [('rf', rf), ('et', et), ('hgb', hgb)]
@@ -305,7 +305,7 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
     stack_model = StackingClassifier(
         estimators=estimators,
         final_estimator=LogisticRegression(C=1.0),
-        n_jobs=-1
+        n_jobs=1
     )
 
     # ── 5. Entrenamiento y Evaluación ───────────────────────────────────────
@@ -326,7 +326,7 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
 
     # Cross-validation
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    cv_scores = cross_val_score(stack_model, X, y, cv=cv, scoring='accuracy', n_jobs=-1)
+    cv_scores = cross_val_score(stack_model, X, y, cv=cv, scoring='accuracy', n_jobs=1)
     print(f"\nCross-Validation (5-fold): {round(cv_scores.mean() * 100, 2)}% ± {round(cv_scores.std() * 100, 2)}%")
 
     # Re-entrenar con todo el catálogo para producción
@@ -810,9 +810,9 @@ def train_crop_yield_model(consolidated_path="data/processed/consolidated_data.c
     )
 
     # Ensamble de Regresión robusto para mejores predicciones
-    rf = RandomForestRegressor(n_estimators=300, max_depth=12, random_state=42, n_jobs=-1)
+    rf = RandomForestRegressor(n_estimators=300, max_depth=12, random_state=42, n_jobs=1)
     hgb = HistGradientBoostingRegressor(max_iter=300, max_depth=8, random_state=42)
-    ensemble = VotingRegressor(estimators=[('rf', rf), ('hgb', hgb)], n_jobs=-1)
+    ensemble = VotingRegressor(estimators=[('rf', rf), ('hgb', hgb)], n_jobs=1)
 
     pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('regressor', ensemble)])
 
