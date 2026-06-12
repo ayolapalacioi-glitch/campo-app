@@ -452,13 +452,14 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Pestañas principales (lenguaje campesino)
-tab_mapa, tab_agro_data, tab_planning, tab_stats, tab_copiloto, tab_ia, tab_chat = st.tabs([
+tab_mapa, tab_agro_data, tab_planning, tab_stats, tab_copiloto, tab_ia, tab_math, tab_chat = st.tabs([
     "🗺️ Mi Región en el Mapa",
     "📊 Cifras del Campo Colombiano",
     "🗓️ ¿Cuándo Sembrar?",
     "💡 Retos e Ideas de Mejora",
     "🤝 Propuestas con Apoyo de IA",
     "✅ Evaluador de Información",
+    "🧮 Framework Matemático",
     "🤖 Chat de Asistencia Campesina (IA)"
 ])
 
@@ -2226,6 +2227,189 @@ with tab_ia:
             col_met1, col_met2 = st.columns(2)
             col_met1.metric("Precisión Global (Accuracy)", f"{pipeline['accuracy']}%", help="Métrica global del clasificador (concurso)")
             col_met2.metric("F1-Score del Modelo", f"{pipeline['f1']}%", help="Métrica balanceada de precisión y sensibilidad")
+
+# ==================== PESTAÑA 6.5: FRAMEWORK MATEMÁTICO ====================
+with tab_math:
+    st.markdown("### 🧮 Ecuaciones y Modelado Matemático de C.A.M.P.O.")
+    st.markdown("""
+    <div class="info-banner">
+        Esta sección presenta el <strong>sustento teórico y las fórmulas matemáticas</strong> que rigen las predicciones de C.A.M.P.O.,
+        permitiendo auditar el comportamiento de los algoritmos y visualizar la respuesta biológica de los cultivos a su entorno.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Selector de cultivo para curvas reactivas
+    st.markdown("#### 📈 Visualizador Interactivo de Curvas Fisiológicas de Estrés")
+    math_crop = st.selectbox("Seleccione un cultivo para inspeccionar sus curvas de estrés:", ["Cafe", "Cacao", "Arroz", "Maiz", "Platano"], key="math_crop_sel")
+    
+    # Importar parámetros fisiológicos
+    from src.models import CROP_PHYSIOLOGICAL_RANGES, calculate_stress_factor, calculate_slope_factor
+    
+    if math_crop in CROP_PHYSIOLOGICAL_RANGES:
+        ranges = CROP_PHYSIOLOGICAL_RANGES[math_crop]
+        
+        # Generar rangos de valores para graficar
+        ph_vals = np.linspace(3.0, 9.0, 100)
+        ph_stress = [calculate_stress_factor(v, ranges["ph"]["min"], ranges["ph"]["max"], ranges["ph"]["sigma"]) for v in ph_vals]
+        
+        alt_vals = np.linspace(0, 3000, 100)
+        alt_stress = [calculate_stress_factor(v, ranges["alt"]["min"], ranges["alt"]["max"], ranges["alt"]["sigma"]) for v in alt_vals]
+        
+        temp_vals = np.linspace(5.0, 40.0, 100)
+        temp_stress = [calculate_stress_factor(v, ranges["temp"]["min"], ranges["temp"]["max"], ranges["temp"]["sigma"]) for v in temp_vals]
+        
+        slope_vals = np.linspace(0.0, 50.0, 100)
+        slope_stress = [calculate_slope_factor(v) for v in slope_vals]
+        
+        # Graficar curvas de estrés
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            fig_ph = go.Figure()
+            fig_ph.add_trace(go.Scatter(x=ph_vals, y=ph_stress, mode='lines', line=dict(color='#2ECC71', width=3), name='pH'))
+            fig_ph.update_layout(
+                title=f"Respuesta al pH (Zona Óptima: {ranges['ph']['min']} - {ranges['ph']['max']})",
+                xaxis_title="pH del Suelo",
+                yaxis_title="Factor de Estrés (S_pH)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                template=plotly_template,
+                margin=dict(l=20, r=20, t=40, b=20)
+            )
+            st.plotly_chart(fig_ph, use_container_width=True)
+            
+            fig_temp = go.Figure()
+            fig_temp.add_trace(go.Scatter(x=temp_vals, y=temp_stress, mode='lines', line=dict(color='#E74C3C', width=3), name='Temperatura'))
+            fig_temp.update_layout(
+                title=f"Respuesta a la Temperatura (Zona Óptima: {ranges['temp']['min']} - {ranges['temp']['max']} °C)",
+                xaxis_title="Temperatura Media Anual (°C)",
+                yaxis_title="Factor de Estrés (S_temp)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                template=plotly_template,
+                margin=dict(l=20, r=20, t=40, b=20)
+            )
+            st.plotly_chart(fig_temp, use_container_width=True)
+            
+        with col_c2:
+            fig_alt = go.Figure()
+            fig_alt.add_trace(go.Scatter(x=alt_vals, y=alt_stress, mode='lines', line=dict(color='#3498DB', width=3), name='Altitud'))
+            fig_alt.update_layout(
+                title=f"Respuesta a la Altitud (Zona Óptima: {ranges['alt']['min']} - {ranges['alt']['max']} msnm)",
+                xaxis_title="Altitud (m.s.n.m.)",
+                yaxis_title="Factor de Estrés (S_alt)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                template=plotly_template,
+                margin=dict(l=20, r=20, t=40, b=20)
+            )
+            st.plotly_chart(fig_alt, use_container_width=True)
+            
+            fig_slope = go.Figure()
+            fig_slope.add_trace(go.Scatter(x=slope_vals, y=slope_stress, mode='lines', line=dict(color='#F1C40F', width=3), name='Pendiente'))
+            fig_slope.update_layout(
+                title="Penalización por Pendiente del Terreno",
+                xaxis_title="Inclinación (%)",
+                yaxis_title="Factor de Estrés (S_pendiente)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                template=plotly_template,
+                margin=dict(l=20, r=20, t=40, b=20)
+            )
+            st.plotly_chart(fig_slope, use_container_width=True)
+            
+    # Mostrar formulación matemática formal en markdown LaTeX
+    st.markdown("---")
+    st.markdown("#### 🔬 Formulación Matemática Completa del Ecosistema")
+    
+    math_tab1, math_tab2, math_tab3 = st.tabs([
+        "🏷️ Clasificación de Viabilidad",
+        "🌾 Predicción de Rendimientos",
+        "💰 Economía y Financiamiento"
+    ])
+    
+    with math_tab1:
+        st.markdown(r"""
+        ##### 🤖 Clasificador de Viabilidad de Datos (Stacking Classifier)
+        
+        El modelo clasifica si un dataset es viable para proyectos de analítica y automatización de IA del MinTIC. Combina features textuales (NLP con representaciones TF-IDF) y numéricas del catálogo.
+        
+        1. **Modelos Base (Weak Learners):**
+           Contamos con $K$ clasificadores base ($f_1, \dots, f_K$), que estiman las probabilidades condicionales para cada vector de características $\mathbf{x} \in \mathbb{R}^D$:
+           $$\hat{p}_k(\mathbf{x}) = P(y = 1 \mid \mathbf{x}; \theta_k) \in [0, 1] \quad \text{para } k = 1, \dots, K$$
+           Los clasificadores base activos en producción son:
+           * **Random Forest Classifier (Ensemble Bagging)**
+           * **Extra Trees Classifier (Extremadamente Aleatorizados)**
+           * **HistGradientBoostingClassifier (Gradient Boosting por Histogramas)**
+        
+        2. **Meta-Clasificador (Logistic Regression):**
+           Las predicciones de los modelos base se concatenan en un nuevo vector de meta-características $\mathbf{h} = [\hat{p}_1(\mathbf{x}), \dots, \hat{p}_K(\mathbf{x})]^T$. La decisión final se optimiza mediante regresión logística regularizada con penalidad $L_2$:
+           $$\min_{\mathbf{w}, b} \left( \frac{1}{2} \|\mathbf{w}\|_2^2 + C \sum_{i=1}^N \log\left(1 + \exp\left(-y_i \left(\mathbf{w}^T \mathbf{h}_i + b\right)\right)\right) \right)$$
+        
+        3. **Inferencia de Probabilidad Viable:**
+           La probabilidad final se calcula mediante la función sigmoide:
+           $$P(\text{viable} = 1 \mid \mathbf{x}) = \sigma\left(\mathbf{w}^T \mathbf{h} + b\right) = \frac{1}{1 + e^{-\left(\mathbf{w}^T \mathbf{h} + b\right)}}$$
+        """)
+        
+    with math_tab2:
+        st.markdown(r"""
+        ##### 🌾 Modelo de Predicción de Rendimientos (Voting Ensemble + Estrés Fisiológico)
+        
+        Para estimar el rendimiento óptimo de las cosechas (expresado en Toneladas por Hectárea, $\text{Ton/Ha}$), C.A.M.P.O. utiliza una metodología que combina algoritmos de aprendizaje supervisado con leyes agronómicas de limitación de recursos.
+        
+        1. **Ensamble de Regresión Basado en Datos (Voting Regressor):**
+           Calculamos el promedio ponderado de las predicciones de los modelos de regresión entrenados en la base histórica unificada:
+           $$\hat{Y}_{\text{ML}}(\mathbf{x}) = w_{\text{RF}} \cdot \hat{Y}_{\text{RF}}(\mathbf{x}) + w_{\text{HGB}} \cdot \hat{Y}_{\text{HGB}}(\mathbf{x})$$
+           *Donde $w_{\text{RF}} = 0.5$, $w_{\text{HGB}} = 0.5$ representan pesos simétricos para reducir la varianza general de la estimación.*
+        
+        2. **Modelo Fisiológico Acoplado (Gaussian Stress Envelopes):**
+           La predicción puramente estadística se ajusta multiplicativamente mediante factores de tolerancia biológica a factores edafoclimáticos (pH, altitud $A$, temperatura $T$, pendiente $S$):
+           $$Y_{\text{final}} = \hat{Y}_{\text{ML}}(\mathbf{x}) \cdot S_{\text{pH}}(\text{pH}) \cdot S_{\text{alt}}(A) \cdot S_{\text{temp}}(T) \cdot S_{\text{slope}}(S)$$
+           
+        3. **Funciones de Estrés Gaussianas:**
+           Cada factor de estrés $S_j(v)$ se modela como una campana de Gauss adaptativa con un intervalo óptimo $[v_{\text{min, opt}}, v_{\text{max, opt}}]$ donde el estrés es nulo ($S_j = 1.0$), decayendo exponencialmente fuera de esta meseta:
+           $$S_j(v) = \begin{cases} 
+           1.0 & \text{si } v_{\text{min, opt}} \leq v \leq v_{\text{max, opt}} \\
+           \exp\left(-\frac{(v - v_{\text{min, opt}})^2}{2\sigma_j^2}\right) & \text{si } v < v_{\text{min, opt}} \\
+           \exp\left(-\frac{(v - v_{\text{max, opt}})^2}{2\sigma_j^2}\right) & \text{si } v > v_{\text{max, opt}}
+           \end{cases}$$
+           *Donde la tolerancia $\sigma_j$ determina la sensibilidad del cultivo al estrés.*
+           
+        4. **Estrés de Pendiente del Terreno ($S_{\text{slope}}$):**
+           La inclinación induce erosión y dificulta la labranza. Se implementa una penalidad lineal segmentada:
+           $$S_{\text{slope}}(s) = \begin{cases}
+           1.0 & \text{si } s \leq 15\% \\
+           1.0 - 0.01(s - 15) & \text{si } 15\% < s \leq 30\% \\
+           \max\left(0.1, 0.85 - 0.02(s - 30)\right) & \text{si } s > 30\%
+           \end{cases}$$
+        """)
+        
+    with math_tab3:
+        st.markdown(r"""
+        ##### 💰 Ecuaciones de Economía Rural e Inclusión Financiera
+        
+        Las proyecciones financieras se calculan a nivel de ciclo productivo y flujo de caja mensualizado para guiar al productor en la toma de créditos:
+        
+        1. **Ingreso Bruto Proyectado (COP):**
+           El retorno bruto de la venta de la cosecha se deriva directamente de la producción total estimada y el precio de mercado SIPSA:
+           $$\text{IB} = Y_{\text{final}} \cdot \text{Área} \cdot 1000 \cdot P_{\text{SIPSA}}$$
+           *Donde $P_{\text{SIPSA}}$ es el precio por kilogramo ($COP/kg$) y $1000$ es el factor de conversión de Toneladas a Kilogramos.*
+        
+        2. **Costo de Producción y Financiamiento (FINAGRO):**
+           Los costos operativos anuales dependen de la cadena de cultivo y el área sembrada:
+           $$\text{CT} = \text{Costo}_{\text{Ha}} \cdot \text{Área}$$
+           Se asume un apalancamiento financiero del $70\%$ del costo mediante créditos de fomento:
+           $$\text{Crédito} = 0.70 \cdot \text{CT}$$
+           
+        3. **Subsidio de Tasa por Enfoque de Inclusión Social (LEC):**
+           La tasa de interés aplicada se reduce de manera compensada si el usuario cumple con las directrices de Joven Rural o Mujer Rural:
+           $$r_{\text{LEC}} = r_{\text{comercial}} - 2.0\%$$
+           $$\text{Interés}_{\text{anual}} = \text{Crédito} \cdot r_{\text{LEC}}$$
+           
+        4. **Utilidad Neta (Net Profit) y Retorno sobre Inversión (ROI):**
+           La rentabilidad final neta del productor se modela descontando costos y gastos de crédito:
+           $$\text{UN} = \text{IB} - \text{CT} - \text{Interés}_{\text{anual}}$$
+           $$\text{ROI} = \frac{\text{UN}}{\text{CT}} \cdot 100\%$$
+        """)
 
 # ==================== PESTAÑA 7: CHAT DE ASISTENCIA (NUEVA) ====================
 with tab_chat:

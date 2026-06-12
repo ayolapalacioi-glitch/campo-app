@@ -720,12 +720,65 @@ Este reporte incluye la exportación técnica bajo el estándar **GEL-XML (Lengu
 # SECCIÓN 2: MODELOS DE RENDIMIENTO Y ECONOMÍA AGRARIA
 # ============================================================
 
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor, VotingRegressor
+
+# Parámetros fisiológicos de referencia (UPRA/ICA/IDEAM) para modelado matemático
+CROP_PHYSIOLOGICAL_RANGES = {
+    "Cafe": {
+        "ph": {"min": 5.2, "max": 6.3, "sigma": 0.6},
+        "temp": {"min": 18.0, "max": 22.0, "sigma": 3.0},
+        "alt": {"min": 1100, "max": 1900, "sigma": 400.0}
+    },
+    "Cacao": {
+        "ph": {"min": 6.0, "max": 7.5, "sigma": 0.8},
+        "temp": {"min": 22.0, "max": 28.0, "sigma": 4.0},
+        "alt": {"min": 0, "max": 1000, "sigma": 300.0}
+    },
+    "Arroz": {
+        "ph": {"min": 5.5, "max": 6.8, "sigma": 0.7},
+        "temp": {"min": 20.0, "max": 30.0, "sigma": 5.0},
+        "alt": {"min": 0, "max": 800, "sigma": 200.0}
+    },
+    "Maiz": {
+        "ph": {"min": 5.5, "max": 7.0, "sigma": 0.8},
+        "temp": {"min": 18.0, "max": 27.0, "sigma": 5.0},
+        "alt": {"min": 0, "max": 1800, "sigma": 500.0}
+    },
+    "Platano": {
+        "ph": {"min": 5.5, "max": 7.0, "sigma": 0.8},
+        "temp": {"min": 22.0, "max": 30.0, "sigma": 4.0},
+        "alt": {"min": 0, "max": 1500, "sigma": 400.0}
+    }
+}
+
+def calculate_stress_factor(val, optimal_min, optimal_max, sigma):
+    """
+    Calcula un factor de estrés gaussiano bimodal (1.0 en la zona óptima, decaimiento suave fuera).
+    """
+    if val < optimal_min:
+        return float(np.exp(-((val - optimal_min) ** 2) / (2 * (sigma ** 2))))
+    elif val > optimal_max:
+        return float(np.exp(-((val - optimal_max) ** 2) / (2 * (sigma ** 2))))
+    else:
+        return 1.0
+
+def calculate_slope_factor(slope):
+    """
+    Calcula el factor de estrés por pendiente. Decaimiento lineal y luego acelerado.
+    """
+    if slope <= 15.0:
+        return 1.0
+    elif slope <= 30.0:
+        return float(1.0 - 0.01 * (slope - 15.0))
+    else:
+        return float(max(0.1, 1.0 - 0.01 * 15.0 - 0.02 * (slope - 30.0)))
+
 
 def train_crop_yield_model(consolidated_path="data/processed/consolidated_data.csv",
                            model_dir="data/processed"):
     """
-    Entrena RandomForestRegressor para predecir rendimiento (Ton/Ha).
+    Entrena un ensamble VotingRegressor (Random Forest + HistGradientBoosting)
+    para predecir rendimiento (Ton/Ha).
     """
     if not os.path.exists(consolidated_path):
         from src.cleaning import process_and_consolidate
@@ -736,7 +789,7 @@ def train_crop_yield_model(consolidated_path="data/processed/consolidated_data.c
     if df.empty:
         raise ValueError("Dataset consolidado vacío.")
 
-    print(f"\nEntrenando modelo de rendimiento: {df.shape[0]} registros.")
+    print(f"\nEntrenando modelo de rendimiento ensamble: {df.shape[0]} registros.")
 
     categorical_features = ["cultivo", "textura"]
     numeric_features = ["ph_suelo", "altitud_m", "pendiente_pct",
@@ -756,8 +809,12 @@ def train_crop_yield_model(consolidated_path="data/processed/consolidated_data.c
         remainder='passthrough'
     )
 
-    model = RandomForestRegressor(n_estimators=200, max_depth=12, random_state=42, n_jobs=-1)
-    pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('regressor', model)])
+    # Ensamble de Regresión robusto para mejores predicciones
+    rf = RandomForestRegressor(n_estimators=300, max_depth=12, random_state=42, n_jobs=-1)
+    hgb = HistGradientBoostingRegressor(max_iter=300, max_depth=8, random_state=42)
+    ensemble = VotingRegressor(estimators=[('rf', rf), ('hgb', hgb)], n_jobs=-1)
+
+    pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('regressor', ensemble)])
 
     pipeline.fit(X_train, y_train)
 
@@ -765,21 +822,22 @@ def train_crop_yield_model(consolidated_path="data/processed/consolidated_data.c
     from sklearn.metrics import mean_squared_error, r2_score
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     r2   = r2_score(y_test, y_pred)
-    print(f"RMSE: {round(rmse, 3)} Ton/Ha | R2: {round(r2 * 100, 2)}%")
+    print(f"RMSE (VotingRegressor): {round(rmse, 3)} Ton/Ha | R2: {round(r2 * 100, 2)}%")
 
     pipeline.fit(X, y)
 
     os.makedirs(model_dir, exist_ok=True)
     model_path = os.path.join(model_dir, "crop_yield_model.joblib")
     joblib.dump(pipeline, model_path)
-    print(f"Modelo rendimiento exportado a: {model_path}")
+    print(f"Modelo rendimiento (Ensamble) exportado a: {model_path}")
 
     return pipeline
 
 
-def predict_crop_yield(input_data, model_path="data/processed/crop_yield_model.joblib"):
+def predict_crop_yield(input_data, model_path="data/processed/crop_yield_model.joblib", apply_stress=True):
     """
     Predice el rendimiento (Ton/Ha) dado los parámetros del predio.
+    Aplica el framework matemático de estrés fisiológico por pH, altitud, temperatura y pendiente.
     """
     if not os.path.exists(model_path):
         train_crop_yield_model()
@@ -787,17 +845,52 @@ def predict_crop_yield(input_data, model_path="data/processed/crop_yield_model.j
     pipeline = joblib.load(model_path)
 
     if isinstance(input_data, dict):
-        input_data = pd.DataFrame([input_data])
+        input_data_df = pd.DataFrame([input_data])
+    elif isinstance(input_data, pd.Series):
+        input_data_df = input_data.to_frame().T
+    else:
+        input_data_df = input_data.copy()
 
     cols = ["cultivo", "textura", "ph_suelo", "altitud_m", "pendiente_pct",
             "materia_organica_pct", "temp_media_c", "precipitacion_anual_mm"]
 
     for col in cols:
-        if col not in input_data.columns:
-            input_data[col] = "Franco" if col == "textura" else 0.0
+        if col not in input_data_df.columns:
+            input_data_df[col] = "Franco" if col == "textura" else 0.0
 
-    input_data = input_data[cols]
-    return float(pipeline.predict(input_data)[0])
+    input_data_df = input_data_df[cols]
+    
+    # Inferencia del ensamble ML
+    ml_pred = float(pipeline.predict(input_data_df)[0])
+    
+    if not apply_stress:
+        return ml_pred
+        
+    # Aplicar stress fisiológico matemático
+    crop = input_data_df["cultivo"].iloc[0]
+    ph = float(input_data_df["ph_suelo"].iloc[0])
+    alt = float(input_data_df["altitud_m"].iloc[0])
+    slope = float(input_data_df["pendiente_pct"].iloc[0])
+    temp = float(input_data_df["temp_media_c"].iloc[0])
+    
+    # Normalizar nombre
+    crop_norm = "Cafe" if "cafe" in str(crop).lower() else \
+                "Cacao" if "cacao" in str(crop).lower() else \
+                "Arroz" if "arroz" in str(crop).lower() else \
+                "Maiz" if "maiz" in str(crop).lower() or "maíz" in str(crop).lower() else \
+                "Platano" if "platano" in str(crop).lower() or "plátano" in str(crop).lower() else None
+                
+    if crop_norm in CROP_PHYSIOLOGICAL_RANGES:
+        ranges = CROP_PHYSIOLOGICAL_RANGES[crop_norm]
+        s_ph = calculate_stress_factor(ph, ranges["ph"]["min"], ranges["ph"]["max"], ranges["ph"]["sigma"])
+        s_alt = calculate_stress_factor(alt, ranges["alt"]["min"], ranges["alt"]["max"], ranges["alt"]["sigma"])
+        s_temp = calculate_stress_factor(temp, ranges["temp"]["min"], ranges["temp"]["max"], ranges["temp"]["sigma"])
+        s_slope = calculate_slope_factor(slope)
+        
+        stress_factor = s_ph * s_alt * s_temp * s_slope
+        return max(0.1, ml_pred * stress_factor)
+        
+    return ml_pred
 
 
 # ────────────────────────────────────────────────────────────
