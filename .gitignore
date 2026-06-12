@@ -11,7 +11,8 @@ env/
 # Datos crudos y modelos entrenados (archivos grandes - usar LFS o regenerar)
 data/raw/*.csv
 data/processed/*.csv
-data/processed/*.joblib
+# data/processed/*.joblib
+!data/processed/*.joblib
 data/processed/*.pkl
 
 # Secretos y configuración local
