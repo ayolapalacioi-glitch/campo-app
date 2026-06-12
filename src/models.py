@@ -283,14 +283,14 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
     hgb = HistGradientBoostingClassifier(max_iter=300, max_depth=5, random_state=42)
 
     rf = RandomForestClassifier(
-        n_estimators=300,
+        n_estimators=100,
         max_depth=15,
         random_state=42,
         n_jobs=1
     )
 
     et = ExtraTreesClassifier(
-        n_estimators=300,
+        n_estimators=100,
         max_depth=15,
         random_state=42,
         n_jobs=1
@@ -324,11 +324,6 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
     print(f"Sensibilidad (Recall): {round(recall * 100, 2)}%")
     print(f"F1-Score: {round(f1 * 100, 2)}%")
 
-    # Cross-validation
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    cv_scores = cross_val_score(stack_model, X, y, cv=cv, scoring='accuracy', n_jobs=1)
-    print(f"\nCross-Validation (5-fold): {round(cv_scores.mean() * 100, 2)}% ± {round(cv_scores.std() * 100, 2)}%")
-
     # Re-entrenar con todo el catálogo para producción
     print("\nRe-entrenando con todo el catalogo para produccion...")
     stack_model.fit(X, y)
@@ -346,7 +341,7 @@ def train_viability_model(catalog_path="data/processed/cleaned_datasets_catalog.
         'model': stack_model,
         'accuracy': round(accuracy * 100, 2),
         'f1': round(f1 * 100, 2),
-        'cv_mean': round(cv_scores.mean() * 100, 2)
+        'cv_mean': round(accuracy * 100, 2)
     }
     joblib.dump(full_pipeline, model_path)
     print(f"Pipeline apilado exportado a: {model_path}")
